@@ -1,0 +1,549 @@
+diff --git a/apps/web/components/issues/issue-detail/issue-activity/root.tsx b/apps/web/components/issues/issue-detail/issue-activity/root.tsx
+index 9f4dea4..3fb7344 100644
+--- a/apps/web/components/issues/issue-detail/issue-activity/root.tsx
++++ b/apps/web/components/issues/issue-detail/issue-activity/root.tsx
+@@ -7,6 +7,7 @@
+ import { useMemo } from "react";
+ import uniq from "lodash-es/uniq";
+ import { observer } from "mobx-react";
++import useSWR from "swr";
+ // plane package imports
+ import type { TActivityFilters } from "@plane/constants";
+ import { E_SORT_ORDER, defaultActivityFilters } from "@plane/constants";
+@@ -19,6 +20,7 @@ import type { TFileSignedURLResponse, TIssueComment } from "@plane/types";
+ import { CommentCreate } from "@/components/comments/comment-create";
+ // hooks
+ import { useProject } from "@/hooks/store/use-project";
++import { useIssueDetail } from "@/hooks/store/use-issue-detail";
+ // local imports
+ import { IssueActivityCommentRoot } from "./activity-comment-root";
+ import { useWorkItemCommentOperations } from "./helper";
+@@ -52,6 +54,45 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
+   const { setValue: setSortOrder, storedValue: sortOrder } = useLocalStorage("activity_sort_order", E_SORT_ORDER.ASC);
+ 
+   const { getProjectById } = useProject();
++  const { fetchActivities, fetchComments } = useIssueDetail();
++  const project = getProjectById(projectId);
++
++  // Jaydon D: #8480 check for new activity and comments.
++  const canRefresh = project && workspaceSlug && projectId && issueId;
++  const refreshOptions = {
++    refreshInterval: 15000,
++    revalidateOnMount: false,
++    revalidateOnFocus: true,
++    revalidateOnReconnect: true,
++    refreshWhenHidden: false,
++    refreshWhenOffline: false,
++  };
++  useSWR(
++    canRefresh ? ["work-item-activity-refresh", workspaceSlug, projectId, issueId] : null,
++    async () => {
++      try {
++        await fetchActivities(workspaceSlug, projectId, issueId, "mutate");
++        return true;
++      } catch (error) {
++        console.error("Failed to refresh work item activity", error);
++        return false;
++      }
++    },
++    refreshOptions
++  );
++  useSWR(
++    canRefresh ? ["work-item-comments-refresh", workspaceSlug, projectId, issueId] : null,
++    async () => {
++      try {
++        await fetchComments(workspaceSlug, projectId, issueId, "mutate");
++        return true;
++      } catch (error) {
++        console.error("Failed to refresh work item comments", error);
++        return false;
++      }
++    },
++    refreshOptions
++  );
+ 
+   // toggle filter
+   const toggleFilter = (filter: TActivityFilters) => {
+@@ -74,7 +115,6 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
+   // helper hooks
+   const activityOperations = useWorkItemCommentOperations(workspaceSlug, projectId, issueId);
+ 
+-  const project = getProjectById(projectId);
+   const renderCommentCreationBox = useMemo(
+     () => (
+       <CommentCreate
+diff --git a/apps/web/package.json b/apps/web/package.json
+index 80ce9c9..183c043 100644
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -9,6 +9,7 @@
+     "build": "react-router build",
+     "preview": "react-router build && serve -s build/client -l 3000",
+     "start": "serve -s build/client -l 3000",
++    "test": "vitest run",
+     "clean": "rm -rf .turbo && rm -rf .next && rm -rf .react-router && rm -rf node_modules && rm -rf dist && rm -rf build",
+     "check:lint": "oxlint --max-warnings=11957 .",
+     "check:types": "react-router typegen && tsc --noEmit",
+@@ -75,13 +76,16 @@
+     "@react-router/dev": "catalog:",
+     "@tailwindcss/postcss": "catalog:",
+     "@tailwindcss/typography": "catalog:",
++    "@testing-library/react": "catalog:",
+     "@types/lodash-es": "catalog:",
+     "@types/node": "catalog:",
+     "@types/react": "catalog:",
+     "@types/react-dom": "catalog:",
+     "dotenv": "catalog:",
++    "jsdom": "catalog:",
+     "typescript": "catalog:",
+     "vite": "catalog:",
+-    "vite-tsconfig-paths": "catalog:"
++    "vite-tsconfig-paths": "catalog:",
++    "vitest": "catalog:"
+   }
+ }
+diff --git a/apps/web/store/issue/issue-details/comment.store.ts b/apps/web/store/issue/issue-details/comment.store.ts
+index b184ec6..891e661 100644
+--- a/apps/web/store/issue/issue-details/comment.store.ts
++++ b/apps/web/store/issue/issue-details/comment.store.ts
+@@ -96,30 +96,35 @@ export class IssueCommentStore implements IIssueCommentStore {
+     loaderType: TCommentLoader = "fetch"
+   ) => {
+     this.loader = loaderType;
++    try {
++      let props = {};
++      const _commentIds = this.getCommentsByIssueId(issueId);
++      if (_commentIds && _commentIds.length > 0) {
++        const _comment = this.getCommentById(_commentIds[_commentIds.length - 1]);
++        if (_comment) props = { created_at__gt: _comment.created_at };
++      }
+ 
+-    let props = {};
+-    const _commentIds = this.getCommentsByIssueId(issueId);
+-    if (_commentIds && _commentIds.length > 0) {
+-      const _comment = this.getCommentById(_commentIds[_commentIds.length - 1]);
+-      if (_comment) props = { created_at__gt: _comment.created_at };
+-    }
+-
+-    const comments = await this.issueCommentService.getIssueComments(workspaceSlug, projectId, issueId, props);
++      const comments = await this.issueCommentService.getIssueComments(workspaceSlug, projectId, issueId, props);
+ 
+-    const commentIds = comments.map((comment) => comment.id);
+-    runInAction(() => {
+-      update(this.comments, issueId, (_commentIds) => {
+-        if (!_commentIds) return commentIds;
+-        return uniq(concat(_commentIds, commentIds));
+-      });
+-      comments.forEach((comment) => {
+-        this.rootIssueDetail.commentReaction.applyCommentReactions(comment.id, comment?.comment_reactions || []);
+-        set(this.commentMap, comment.id, comment);
++      const commentIds = comments.map((comment) => comment.id);
++      runInAction(() => {
++        update(this.comments, issueId, (existingCommentIds) => {
++          if (!existingCommentIds) return commentIds;
++          return uniq(concat(existingCommentIds, commentIds));
++        });
++        comments.forEach((comment) => {
++          this.rootIssueDetail.commentReaction.applyCommentReactions(comment.id, comment?.comment_reactions || []);
++          set(this.commentMap, comment.id, comment);
++        });
+       });
+-      this.loader = undefined;
+-    });
+ 
+-    return comments;
++      return comments;
++    } finally {
++      // Jaydon D: #8480 clear the loader even if the request fails.
++      runInAction(() => {
++        this.loader = undefined;
++      });
++    }
+   };
+ 
+   createComment = async (workspaceSlug: string, projectId: string, issueId: string, data: Partial<TIssueComment>) => {
+diff --git a/apps/web/tests/issue-activity-refresh.test.tsx b/apps/web/tests/issue-activity-refresh.test.tsx
+new file mode 100644
+index 0000000..c7dc8ca
+--- /dev/null
++++ b/apps/web/tests/issue-activity-refresh.test.tsx
+@@ -0,0 +1,280 @@
++import { useState } from "react";
++import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
++import { SWRConfig } from "swr";
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++import { EActivityFilterType, E_SORT_ORDER, defaultActivityFilters } from "@plane/constants";
++import type { TIssueActivity, TIssueComment } from "@plane/types";
++import { EIssueServiceType } from "@plane/types";
++import { IssueActivity } from "@/components/issues/issue-detail/issue-activity/root";
++import { IssueActivityStore } from "@/store/issue/issue-details/activity.store";
++import { IssueCommentStore } from "@/store/issue/issue-details/comment.store";
++import type { IIssueDetail } from "@/store/issue/issue-details/root.store";
++import type { CoreRootStore } from "@/store/root.store";
++
++const backend = vi.hoisted(() => ({
++  comments: vi.fn(),
++  activities: vi.fn(),
++  create: vi.fn(),
++  update: vi.fn(),
++  remove: vi.fn(),
++  detail: undefined as unknown,
++  projectExists: true,
++}));
++
++vi.mock("@/services/issue", () => ({
++  IssueCommentService: class {
++    getIssueComments = backend.comments;
++    createIssueComment = backend.create;
++    patchIssueComment = backend.update;
++    deleteIssueComment = backend.remove;
++  },
++  IssueActivityService: class {
++    getIssueActivities = backend.activities;
++  },
++}));
++vi.mock("@/hooks/store/use-issue-detail", () => ({ useIssueDetail: () => backend.detail }));
++vi.mock("@/hooks/store/use-project", () => ({
++  useProject: () => ({ getProjectById: () => (backend.projectExists ? { anchor: null } : undefined) }),
++}));
++vi.mock("@plane/i18n", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
++vi.mock("@plane/hooks", () => ({
++  useLocalStorage: (_key: string, initial: unknown) => {
++    const [storedValue, setValue] = useState(initial);
++    return { storedValue, setValue };
++  },
++}));
++vi.mock("@/components/issues/issue-detail/issue-activity/helper", () => ({
++  useWorkItemCommentOperations: () => ({}),
++}));
++vi.mock("@/components/comments/comment-create", () => ({
++  CommentCreate: () => <textarea aria-label="Comment draft" />,
++}));
++vi.mock("@/components/comments/card/root", () => ({
++  CommentCard: ({ comment }: { comment: TIssueComment }) => <p>{comment.comment_html}</p>,
++}));
++vi.mock("@/components/issues/issue-detail/issue-activity/activity/activity-list", () => ({
++  IssueActivityItem: ({ activityId }: { activityId: string }) => <p>{activityId}</p>,
++}));
++vi.mock("@/components/issues/issue-detail/issue-activity/loader", () => ({
++  IssueActivityLoader: () => <p>Loading</p>,
++}));
++vi.mock("@/components/issues/issue-detail/issue-activity/sort-root", () => ({
++  ActivitySortRoot: ({ toggleSort }: { toggleSort: () => void }) => <button onClick={toggleSort}>Sort</button>,
++}));
++vi.mock("@/components/issues/issue-detail/issue-activity/filter-root", () => ({
++  ActivityFilterRoot: ({ toggleFilter }: { toggleFilter: (filter: EActivityFilterType) => void }) => (
++    <button onClick={() => toggleFilter(EActivityFilterType.COMMENT)}>Toggle comments</button>
++  ),
++}));
++
++let detail: IIssueDetail;
++const comment = (id: string, text = id) =>
++  ({
++    id,
++    comment_html: text,
++    created_at: "2026-10-13T10:00:00Z",
++    comment_reactions: [],
++  }) as unknown as TIssueComment;
++const activity = (id: string) =>
++  ({
++    id,
++    field: "state",
++    created_at: "2026-10-13T10:01:00Z",
++  }) as unknown as TIssueActivity;
++const props = { workspaceSlug: "test-workspace", projectId: "test-project", issueId: "first-item" };
++
++beforeEach(async () => {
++  vi.useFakeTimers();
++  vi.clearAllMocks();
++  Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
++  backend.projectExists = true;
++  backend.comments.mockResolvedValue([]);
++  backend.activities.mockResolvedValue([]);
++  detail = { commentReaction: { applyCommentReactions: vi.fn() } } as unknown as IIssueDetail;
++  const root = { issue: { issueDetail: detail } } as unknown as CoreRootStore;
++  detail.activity = new IssueActivityStore(root);
++  detail.comment = new IssueCommentStore(detail, EIssueServiceType.ISSUES);
++  detail.fetchActivities = (...args) => detail.activity.fetchActivities(...args);
++  detail.fetchComments = (...args) => detail.comment.fetchComments(...args);
++  backend.detail = detail;
++  await detail.activity.fetchActivities(props.workspaceSlug, props.projectId, props.issueId);
++  await detail.comment.fetchComments(props.workspaceSlug, props.projectId, props.issueId);
++  backend.comments.mockClear();
++  backend.activities.mockClear();
++});
++
++afterEach(() => {
++  cleanup();
++  window.dispatchEvent(new Event("online"));
++  vi.useRealTimers();
++  vi.restoreAllMocks();
++});
++
++const mount = (issueId = props.issueId) =>
++  render(
++    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
++      <IssueActivity {...props} issueId={issueId} />
++    </SWRConfig>
++  );
++const tick = async (ms = 15000) => {
++  await act(async () => {
++    await vi.advanceTimersByTimeAsync(ms);
++  });
++};
++
++describe("#8480 activity refresh", () => {
++  it("shows a new remote comment without reopening or reloading the view", async () => {
++    mount();
++    expect(screen.queryByText("Other user's comment")).toBeNull();
++    backend.comments.mockResolvedValue([comment("remote", "Other user's comment")]);
++    await tick();
++    expect(screen.getByText("Other user's comment")).toBeTruthy();
++    expect(backend.comments).toHaveBeenCalledWith("test-workspace", "test-project", "first-item", {});
++  });
++
++  it("merges activity and comments once and preserves the draft and sort/filter choices", async () => {
++    mount();
++    fireEvent.click(screen.getByRole("button", { name: "Sort" }));
++    fireEvent.change(screen.getByLabelText("Comment draft"), { target: { value: "unsent draft" } });
++    backend.comments.mockResolvedValue([comment("remote")]);
++    backend.activities.mockResolvedValue([activity("remote-state-change")]);
++    await tick();
++    await tick();
++    expect(screen.getAllByText("remote")).toHaveLength(1);
++    expect(screen.getAllByText("remote-state-change")).toHaveLength(1);
++    expect((screen.getByLabelText("Comment draft") as HTMLTextAreaElement).value).toBe("unsent draft");
++    const items = detail.activity.getActivityAndCommentsByIssueId(props.issueId, E_SORT_ORDER.DESC)!;
++    expect(items.map((item) => item.id)).toEqual(["remote-state-change", "remote"]);
++    expect(backend.comments).toHaveBeenLastCalledWith("test-workspace", "test-project", "first-item", {
++      created_at__gt: "2026-10-13T10:00:00Z",
++    });
++    expect(defaultActivityFilters).toContain(EActivityFilterType.COMMENT);
++    fireEvent.click(screen.getByRole("button", { name: "Toggle comments" }));
++    await tick();
++    expect(screen.queryByText("remote")).toBeNull();
++    expect(screen.getByText("remote-state-change")).toBeTruthy();
++  });
++
++  it("pauses in a hidden tab and stops when the view closes", async () => {
++    const view = mount();
++    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
++    await tick();
++    expect(backend.comments).not.toHaveBeenCalled();
++    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
++    await tick();
++    expect(backend.comments).toHaveBeenCalledOnce();
++    view.unmount();
++    await tick(30000);
++    expect(backend.comments).toHaveBeenCalledOnce();
++  });
++
++  it("checks on focus and reconnection and pauses while offline", async () => {
++    mount();
++    await tick(6000);
++    window.dispatchEvent(new Event("focus"));
++    await tick(1);
++    expect(backend.comments).toHaveBeenCalledOnce();
++    window.dispatchEvent(new Event("offline"));
++    await tick(15000);
++    expect(backend.comments).toHaveBeenCalledOnce();
++    window.dispatchEvent(new Event("online"));
++    await tick(1);
++    expect(backend.comments).toHaveBeenCalledTimes(2);
++  });
++
++  it("uses the new item after switching and does not fetch without a project", async () => {
++    const view = mount();
++    await tick();
++    view.rerender(
++      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
++        <IssueActivity {...props} issueId="second-item" />
++      </SWRConfig>
++    );
++    await tick();
++    expect(backend.comments.mock.calls.filter((call) => call[2] === "first-item")).toHaveLength(1);
++    expect(backend.comments.mock.calls.some((call) => call[2] === "second-item")).toBe(true);
++    expect(backend.comments.mock.calls.slice(1).every((call) => call[2] === "second-item")).toBe(true);
++    const callsBeforeMissingProject = backend.comments.mock.calls.length;
++    view.unmount();
++    backend.projectExists = false;
++    mount();
++    await tick();
++    expect(backend.comments).toHaveBeenCalledTimes(callsBeforeMissingProject);
++  });
++
++  it("recovers at the next interval after a failed request without losing existing comments", async () => {
++    backend.create.mockResolvedValue(comment("local", "Existing comment"));
++    await detail.comment.createComment("test-workspace", "test-project", "first-item", {});
++    const log = vi.spyOn(console, "error").mockImplementation(() => {});
++    mount();
++    backend.comments.mockRejectedValueOnce(new Error("Temporary network failure"));
++    await tick();
++    expect(screen.getByText("Existing comment")).toBeTruthy();
++    expect(detail.comment.loader).toBeUndefined();
++    expect(log).toHaveBeenCalledOnce();
++    backend.comments.mockResolvedValue([comment("remote", "Recovered comment")]);
++    await tick();
++    expect(screen.getByText("Recovered comment")).toBeTruthy();
++    expect(screen.getByText("Existing comment")).toBeTruthy();
++  });
++
++  it("does not overlap refreshes while a previous request is pending", async () => {
++    let finish!: (comments: TIssueComment[]) => void;
++    backend.comments.mockReturnValue(
++      new Promise<TIssueComment[]>((resolve) => {
++        finish = resolve;
++      })
++    );
++    mount();
++    await tick();
++    await tick(30000);
++    expect(backend.comments).toHaveBeenCalledOnce();
++    await act(async () => {
++      finish([comment("slow")]);
++    });
++    expect(screen.getByText("slow")).toBeTruthy();
++    await tick();
++    expect(backend.comments).toHaveBeenCalledTimes(2);
++  });
++
++  it.each(["comments", "activities"] as const)(
++    "keeps the other history refreshing while %s is pending",
++    async (pendingHistory) => {
++      let finish!: (entries: []) => void;
++      backend[pendingHistory].mockReturnValue(
++        new Promise<[]>((resolve) => {
++          finish = resolve;
++        })
++      );
++      const otherHistory = pendingHistory === "comments" ? "activities" : "comments";
++      const first = otherHistory === "comments" ? comment("first") : activity("first");
++      const second = otherHistory === "comments" ? comment("second") : activity("second");
++      backend[otherHistory].mockResolvedValueOnce([first]).mockResolvedValueOnce([second]);
++      mount();
++      await tick();
++      expect(screen.getByText("first")).toBeTruthy();
++      await tick();
++      expect(screen.getByText("second")).toBeTruthy();
++      expect(backend[pendingHistory]).toHaveBeenCalledOnce();
++      expect(backend[otherHistory]).toHaveBeenCalledTimes(2);
++      await act(async () => {
++        finish([]);
++      });
++    }
++  );
++
++  it("keeps local comment creation, editing and deletion working", async () => {
++    backend.create.mockResolvedValue(comment("local", "original"));
++    await detail.comment.createComment("test-workspace", "test-project", "first-item", {});
++    expect(detail.comment.getCommentById("local")?.comment_html).toBe("original");
++    backend.update.mockResolvedValue({ updated_at: "2026-10-13T12:00:00Z", edited_at: "2026-10-13T12:00:00Z" });
++    await detail.comment.updateComment("test-workspace", "test-project", "first-item", "local", {
++      comment_html: "edited",
++    });
++    expect(detail.comment.getCommentById("local")?.comment_html).toBe("edited");
++    backend.remove.mockResolvedValue(undefined);
++    await detail.comment.removeComment("test-workspace", "test-project", "first-item", "local");
++    expect(detail.comment.getCommentsByIssueId("first-item")).toEqual([]);
++    expect(detail.comment.getCommentById("local")).toBeUndefined();
++  });
++});
+diff --git a/apps/web/vitest.config.ts b/apps/web/vitest.config.ts
+new file mode 100644
+index 0000000..a28e348
+--- /dev/null
++++ b/apps/web/vitest.config.ts
+@@ -0,0 +1,25 @@
++import { fileURLToPath } from "node:url";
++import { defineConfig } from "vitest/config";
++
++const source = (path: string) => fileURLToPath(new URL(path, import.meta.url));
++
++export default defineConfig({
++  resolve: {
++    alias: {
++      "@": source("./"),
++      "@plane/constants": source("../../packages/constants/src/index.ts"),
++      "@plane/types": source("../../packages/types/src/index.ts"),
++      "@plane/hooks": source("../../packages/hooks/src/index.ts"),
++      "@plane/i18n": source("../../packages/i18n/src/index.ts"),
++      "@plane/blocks/icons": source("../../packages/blocks/src/icons/index.ts"),
++    },
++  },
++  oxc: { jsx: { runtime: "automatic" } },
++  css: { postcss: { plugins: [] } },
++  test: {
++    environment: "jsdom",
++    include: ["tests/**/*.test.tsx"],
++    maxWorkers: 1,
++    isolate: true,
++  },
++});
+diff --git a/contributions/jaydon/8480/README.md b/contributions/jaydon/8480/README.md
+new file mode 100644
+index 0000000..c6f905c
+--- /dev/null
++++ b/contributions/jaydon/8480/README.md
+@@ -0,0 +1,28 @@
++# Request 8480
++
++Issue: https://github.com/makeplane/plane/issues/8480
++
++The activity view previously loaded data on opening and after local actions. It now checks for another user's new comments and activity every 15 seconds through two independent SWR polls and the existing stores.
++
++It also checks on focus and reconnection, pauses while hidden or offline, and stops future polls when closed. A request already running can finish for its original item. One pending history request doesn't block the other. Failed requests are logged and can retry at the next interval; `finally` clears the comment loader.
++
++The existing `created_at__gt` queries fetch new entries and merge IDs without duplicates. Polling preserves the editor, filters and sorting. It doesn't add updates for another user's comment edits or deletions.
++
++## Tests
++
++From the repository root with Node 22.22 or later and the repository's pnpm version:
++
++```powershell
++pnpm install --frozen-lockfile
++pnpm --filter web test tests/issue-activity-refresh.test.tsx
++```
++
++Ten tests use the real activity components, SWR and stores with fake timers. API responses and some UI controls are test doubles. They cover refreshes, drafts, duplicates, filters, visibility/connectivity, item changes, failed or pending requests, and local comment operations. Only test dependencies are added.
++
++## Two-user check
++
++1. Open the same work item as two different users in separate browser profiles.
++2. Keep A visible with an unsent draft. Post a new comment from B. It should appear in A after the next successful refresh without reloading or losing the draft.
++3. Change the state in B. Check its history entry appears in A without duplicates on later polls.
++4. Clear the draft, then check filters, sorting and local comment create/edit/delete.
++5. Switch A to another item and check the request IDs. Close the activity view and confirm its interval requests stop. Hidden/offline views should pause and resume when visible/online.
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 0b2c4cc..19101eb 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -1117,6 +1117,9 @@ importers:
+       '@tailwindcss/typography':
+         specifier: 'catalog:'
+         version: 0.5.19
++      '@testing-library/react':
++        specifier: 'catalog:'
++        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+       '@types/lodash-es':
+         specifier: 'catalog:'
+         version: 4.17.12
+@@ -1132,6 +1135,9 @@ importers:
+       dotenv:
+         specifier: 'catalog:'
+         version: 16.4.7
++      jsdom:
++        specifier: 'catalog:'
++        version: 23.2.0
+       typescript:
+         specifier: 5.8.3
+         version: 5.8.3
+@@ -1141,6 +1147,9 @@ importers:
+       vite-tsconfig-paths:
+         specifier: 'catalog:'
+         version: 5.1.4(typescript@5.8.3)(vite@8.0.16(@types/node@22.12.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.43.1)(tsx@4.20.6)(yaml@2.8.3))
++      vitest:
++        specifier: 'catalog:'
++        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.12.0)(@vitest/coverage-v8@4.1.11)(jsdom@23.2.0)(vite@8.0.16(@types/node@22.12.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.43.1)(tsx@4.20.6)(yaml@2.8.3))
+ 
+   packages/blocks:
+     dependencies:

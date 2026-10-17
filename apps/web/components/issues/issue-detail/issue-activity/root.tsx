@@ -7,6 +7,7 @@
 import { useMemo } from "react";
 import uniq from "lodash-es/uniq";
 import { observer } from "mobx-react";
+import useSWR from "swr";
 // plane package imports
 import type { TActivityFilters } from "@plane/constants";
 import { E_SORT_ORDER, defaultActivityFilters } from "@plane/constants";
@@ -19,6 +20,7 @@ import type { TFileSignedURLResponse, TIssueComment } from "@plane/types";
 import { CommentCreate } from "@/components/comments/comment-create";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
+import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 // local imports
 import { IssueActivityCommentRoot } from "./activity-comment-root";
 import { useWorkItemCommentOperations } from "./helper";
@@ -52,6 +54,45 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
   const { setValue: setSortOrder, storedValue: sortOrder } = useLocalStorage("activity_sort_order", E_SORT_ORDER.ASC);
 
   const { getProjectById } = useProject();
+  const { fetchActivities, fetchComments } = useIssueDetail();
+  const project = getProjectById(projectId);
+
+  // Jaydon D: #8480 check for new activity and comments.
+  const canRefresh = project && workspaceSlug && projectId && issueId;
+  const refreshOptions = {
+    refreshInterval: 15000,
+    revalidateOnMount: false,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    refreshWhenHidden: false,
+    refreshWhenOffline: false,
+  };
+  useSWR(
+    canRefresh ? ["work-item-activity-refresh", workspaceSlug, projectId, issueId] : null,
+    async () => {
+      try {
+        await fetchActivities(workspaceSlug, projectId, issueId, "mutate");
+        return true;
+      } catch (error) {
+        console.error("Failed to refresh work item activity", error);
+        return false;
+      }
+    },
+    refreshOptions
+  );
+  useSWR(
+    canRefresh ? ["work-item-comments-refresh", workspaceSlug, projectId, issueId] : null,
+    async () => {
+      try {
+        await fetchComments(workspaceSlug, projectId, issueId, "mutate");
+        return true;
+      } catch (error) {
+        console.error("Failed to refresh work item comments", error);
+        return false;
+      }
+    },
+    refreshOptions
+  );
 
   // toggle filter
   const toggleFilter = (filter: TActivityFilters) => {
@@ -74,7 +115,6 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
   // helper hooks
   const activityOperations = useWorkItemCommentOperations(workspaceSlug, projectId, issueId);
 
-  const project = getProjectById(projectId);
   const renderCommentCreationBox = useMemo(
     () => (
       <CommentCreate
