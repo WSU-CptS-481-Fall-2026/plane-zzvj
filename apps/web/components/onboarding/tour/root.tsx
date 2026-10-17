@@ -39,8 +39,9 @@ const TOUR_STEPS: {
   {
     key: "work-items",
     title: "Plan with work items",
+    // Jaydon D: #7447 fix the work-items tour wording.
     description:
-      "The work item is the building block of the Plane. Most concepts in Plane are either associated with work items and their properties.",
+      "The work item is the building block of Plane. Most concepts in Plane are associated with work items and their properties.",
     image: IssuesTour,
     nextStep: "cycles",
   },

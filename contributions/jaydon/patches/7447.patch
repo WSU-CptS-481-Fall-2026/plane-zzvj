@@ -1,0 +1,118 @@
+diff --git a/apps/web/components/onboarding/tour/root.tsx b/apps/web/components/onboarding/tour/root.tsx
+index 1a165f2..e41b07e 100644
+--- a/apps/web/components/onboarding/tour/root.tsx
++++ b/apps/web/components/onboarding/tour/root.tsx
+@@ -39,8 +39,9 @@ const TOUR_STEPS: {
+   {
+     key: "work-items",
+     title: "Plan with work items",
++    // Jaydon D: #7447 fix the work-items tour wording.
+     description:
+-      "The work item is the building block of the Plane. Most concepts in Plane are either associated with work items and their properties.",
++      "The work item is the building block of Plane. Most concepts in Plane are associated with work items and their properties.",
+     image: IssuesTour,
+     nextStep: "cycles",
+   },
+diff --git a/apps/web/tests/onboarding-tour.test.tsx b/apps/web/tests/onboarding-tour.test.tsx
+new file mode 100644
+index 0000000..f9533fd
+--- /dev/null
++++ b/apps/web/tests/onboarding-tour.test.tsx
+@@ -0,0 +1,70 @@
++import type { ComponentProps } from "react";
++import { cleanup, fireEvent, render, screen } from "@testing-library/react";
++import { afterEach, describe, expect, it, vi } from "vitest";
++import { TourRoot } from "@/components/onboarding/tour/root";
++
++const { createProject } = vi.hoisted(() => ({ createProject: vi.fn() }));
++
++vi.mock("@/hooks/store/use-command-palette", () => ({
++  useCommandPalette: () => ({ toggleCreateProjectModal: createProject }),
++}));
++vi.mock("@/hooks/store/user", () => ({ useUser: () => ({ data: { first_name: "Test", last_name: "User" } }) }));
++vi.mock("@makeplane/propel/components/button", () => ({
++  Button: ({ label, onClick }: { label: string; onClick: ComponentProps<"button">["onClick"] }) => (
++    <button type="button" onClick={onClick}>
++      {label}
++    </button>
++  ),
++}));
++vi.mock("@plane/blocks/icons", () => ({ PlaneLockup: () => <span /> }));
++vi.mock("@makeplane/propel/icons", () => ({
++  CloseOutline: () => <span data-testid="close-tour" />,
++  CyclesOutline: () => <span />,
++  ModuleOutline: () => <span />,
++  PagesOutline: () => <span />,
++  ViewsOutline: () => <span />,
++  WorkItemsOutline: () => <span />,
++}));
++
++afterEach(() => {
++  cleanup();
++  vi.clearAllMocks();
++});
++
++const startTour = () => fireEvent.click(screen.getByRole("button", { name: "Take a Product Tour" }));
++
++describe("#7447 onboarding wording", () => {
++  it("shows the corrected work-item description", () => {
++    render(<TourRoot onComplete={vi.fn()} />);
++    startTour();
++    expect(
++      screen.getByText(
++        "The work item is the building block of Plane. Most concepts in Plane are associated with work items and their properties."
++      )
++    ).toBeTruthy();
++  });
++
++  it("keeps Next, Back, sidebar navigation and project creation working", () => {
++    const onComplete = vi.fn();
++    render(<TourRoot onComplete={onComplete} />);
++    startTour();
++    fireEvent.click(screen.getByRole("button", { name: "Next" }));
++    expect(screen.getByRole("heading", { name: "Move with cycles" })).toBeTruthy();
++    fireEvent.click(screen.getByRole("button", { name: "Back" }));
++    expect(screen.getByRole("heading", { name: "Plan with work items" })).toBeTruthy();
++    fireEvent.click(screen.getByRole("button", { name: "Pages" }));
++    fireEvent.click(screen.getByRole("button", { name: "Create your first project" }));
++    expect(onComplete).toHaveBeenCalledOnce();
++    expect(createProject).toHaveBeenCalledWith(true);
++  });
++
++  it("keeps skipping and closing the tour working", () => {
++    const onComplete = vi.fn();
++    render(<TourRoot onComplete={onComplete} />);
++    fireEvent.click(screen.getByRole("button", { name: "No thanks, I will explore it myself" }));
++    expect(onComplete).toHaveBeenCalledOnce();
++    startTour();
++    fireEvent.click(screen.getByTestId("close-tour").closest("button")!);
++    expect(onComplete).toHaveBeenCalledTimes(2);
++  });
++});
+diff --git a/contributions/jaydon/7447/README.md b/contributions/jaydon/7447/README.md
+new file mode 100644
+index 0000000..2a13bc6
+--- /dev/null
++++ b/contributions/jaydon/7447/README.md
+@@ -0,0 +1,21 @@
++# Request 7447
++
++Issue: https://github.com/makeplane/plane/issues/7447
++
++The work-items tour description removes the extra article before Plane and the unmatched either. Other descriptions, images and navigation stay the same.
++
++## Tests
++
++After installing workspace dependencies:
++
++```powershell
++pnpm --filter web test tests/onboarding-tour.test.tsx
++```
++
++Three tests render the tour and sidebar. They check the wording, Next, Back, sidebar selection, the create-project callback, skipping and closing. User hooks, icons and the shared Button are test doubles; the tests don't create a real server-side project.
++
++## Upstream comparison
++
++PR https://github.com/makeplane/plane/pull/9996 was still open when checked October 16, 2026. It makes the same grammar correction but uses `or their properties`; this patch keeps `and their properties` and adds rendered tour tests.
++
++Apply the 8480 patch first for the web test setup.
