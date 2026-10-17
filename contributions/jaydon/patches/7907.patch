@@ -1,0 +1,130 @@
+diff --git a/.dockerignore b/.dockerignore
+index e0b681f..9326f54 100644
+--- a/.dockerignore
++++ b/.dockerignore
+@@ -1,5 +1,6 @@
+ .git
+-*.pyc
++# Jaydon D: #7907 ignore bytecode in nested folders.
++**/*.pyc
+ .env
+ venv
+ .venv
+diff --git a/contributions/jaydon/7907/README.md b/contributions/jaydon/7907/README.md
+new file mode 100644
+index 0000000..563f971
+--- /dev/null
++++ b/contributions/jaydon/7907/README.md
+@@ -0,0 +1,21 @@
++# Request 7907
++
++Issue: https://github.com/makeplane/plane/issues/7907
++
++The root `.dockerignore` now uses `**/*.pyc` instead of `*.pyc` so nested Python bytecode is excluded too. This affects builds using the repository root as their context, not builds whose context is `apps/api`.
++
++## Test
++
++From the repository root, with Node 22 and Docker running:
++
++```powershell
++$env:REQUIRE_DOCKER = '1'
++node --test contributions/jaydon/7907/docker-context.test.mjs
++Remove-Item Env:REQUIRE_DOCKER
++```
++
++The test uses the real ignore file in a temporary `FROM scratch` build. It checks four excluded bytecode paths and five included files, including Python source and `.pyc.txt`. It cleans up its temporary folder and leaves project containers and volumes alone.
++
++Without `REQUIRE_DOCKER=1`, an unavailable engine causes a skip. A skip doesn't verify the fix.
++
++Pattern reference: https://docs.docker.com/build/concepts/context/#dockerignore-files
+diff --git a/contributions/jaydon/7907/docker-context.test.mjs b/contributions/jaydon/7907/docker-context.test.mjs
+new file mode 100644
+index 0000000..260c9c8
+--- /dev/null
++++ b/contributions/jaydon/7907/docker-context.test.mjs
+@@ -0,0 +1,50 @@
++import assert from "node:assert/strict";
++import { spawnSync } from "node:child_process";
++import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
++import { tmpdir } from "node:os";
++import { dirname, join, resolve } from "node:path";
++import { fileURLToPath } from "node:url";
++import test from "node:test";
++
++const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
++const engine = spawnSync("docker", ["info", "--format", "{{.ServerVersion}}"], { encoding: "utf8", timeout: 15000 });
++const dockerAvailable = engine.status === 0;
++
++test(
++  "#7907 Docker excludes bytecode at every depth and keeps source files",
++  {
++    skip:
++      !dockerAvailable && process.env.REQUIRE_DOCKER !== "1"
++        ? "Docker engine unavailable; context test not run"
++        : false,
++  },
++  () => {
++    assert.ok(dockerAvailable, "Docker engine is required for this test. Start Docker Desktop first.");
++    const fixture = mkdtempSync(join(tmpdir(), "plane-7907-"));
++    const context = join(fixture, "context");
++    const output = join(fixture, "output");
++    const excluded = ["root.pyc", "one/module.pyc", "one/two/module.pyc", "one/two/__pycache__/module.cpython-312.pyc"];
++    const included = ["root.py", "one/module.py", "one/two/module.py", "one/two/module.pyc.txt", "one/two/notes.txt"];
++    try {
++      mkdirSync(context);
++      copyFileSync(join(repo, ".dockerignore"), join(context, ".dockerignore"));
++      for (const path of [...excluded, ...included]) {
++        const destination = join(context, path);
++        mkdirSync(dirname(destination), { recursive: true });
++        writeFileSync(destination, "fixture data\n");
++      }
++      writeFileSync(join(context, "Dockerfile"), "FROM scratch\nCOPY . /\n");
++      const build = spawnSync("docker", ["build", "--output", `type=local,dest=${output}`, context], {
++        encoding: "utf8",
++        timeout: 120000,
++      });
++      assert.equal(build.status, 0, `Fixture build failed: ${build.stderr || build.error?.message}`);
++      for (const path of excluded) assert.equal(existsSync(join(output, path)), false, `${path} entered the context`);
++      for (const path of included)
++        assert.equal(readFileSync(join(output, path), "utf8"), "fixture data\n", `${path} was excluded`);
++    } finally {
++      // Clean up this test's temporary folder.
++      rmSync(fixture, { recursive: true, force: true });
++    }
++  }
++);
+diff --git a/contributions/jaydon/README.md b/contributions/jaydon/README.md
+new file mode 100644
+index 0000000..eeb4ce3
+--- /dev/null
++++ b/contributions/jaydon/README.md
+@@ -0,0 +1,29 @@
++# Jaydon's Deliverable 1 changes
++
++Requests: 7907, 8480 and 7447. Base: team preview commit `c7a5afee6afd15f16038ebda1ec1489ebd8af67d`.
++
++Each request folder explains its change and tests. Web tests are in `apps/web/tests`. The Docker test is in `7907/docker-context.test.mjs`.
++
++## Apply the patches
++
++Use a clean checkout of the base. Copy the three files from `patches` into a folder beside that checkout named `jaydon-patches`. From the checkout's root, run:
++
++```powershell
++git apply --check ../jaydon-patches/7907.patch
++git apply ../jaydon-patches/7907.patch
++git apply --check ../jaydon-patches/8480.patch
++git apply ../jaydon-patches/8480.patch
++git apply --check ../jaydon-patches/7447.patch
++git apply ../jaydon-patches/7447.patch
++```
++
++Apply 8480 before 7447 because it adds the web test setup. Check for conflicts if the team branch has newer changes.
++
++## Run the checks
++
++```powershell
++pnpm --filter web test
++pnpm --filter @plane/services test
++```
++
++See `7907/README.md` for the Docker test command.

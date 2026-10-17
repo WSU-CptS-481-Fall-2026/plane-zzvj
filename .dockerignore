@@ -1,5 +1,6 @@
 .git
-*.pyc
+# Jaydon D: #7907 ignore bytecode in nested folders.
+**/*.pyc
 .env
 venv
 .venv
