@@ -13,7 +13,7 @@ from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
 
 # Module imports
-from plane.db.models import User, Workspace, WorkspaceMemberInvite
+from plane.db.models import User, Workspace, WorkspaceMember, WorkspaceMemberInvite
 from plane.license.utils.instance_value import get_email_configuration
 from plane.utils.email import generate_plain_text_from_html
 from plane.utils.exception_logger import log_exception
@@ -25,7 +25,10 @@ def workspace_invitation(email, workspace_id, token, current_site, inviter):
         user = User.objects.get(email=inviter)
 
         workspace = Workspace.objects.get(pk=workspace_id)
-        workspace_member_invite = WorkspaceMemberInvite.objects.get(token=token, email=email)
+        pending_invitations = WorkspaceMemberInvite.objects.filter(
+            workspace_id=workspace_id, token=token, email=email, accepted=False, responded_at__isnull=True
+        )
+        workspace_member_invite = pending_invitations.get()
 
         # Relative link
         relative_link = (
@@ -59,8 +62,13 @@ def workspace_invitation(email, workspace_id, token, current_site, inviter):
 
         text_content = generate_plain_text_from_html(html_content)
 
-        workspace_member_invite.message = text_content
-        workspace_member_invite.save()
+        if WorkspaceMember.objects.filter(
+            workspace_id=workspace_id, member__email__iexact=email, is_active=True
+        ).exists():
+            return
+        # Recheck after rendering so a response or removal cannot be overwritten.
+        if not pending_invitations.filter(pk=workspace_member_invite.pk).update(message=text_content):
+            return
 
         connection = get_connection(
             host=EMAIL_HOST,
