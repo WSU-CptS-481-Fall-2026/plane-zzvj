@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.http import QueryDict
 
 # Third party imports
-from django_filters.filters import BaseCSVFilter
+from django_filters.filters import BaseCSVFilter, ChoiceFilter
 from django_filters.utils import translate_validation
 from rest_framework import filters
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -267,6 +267,14 @@ class ComplexFilterBackend(filters.BaseFilterBackend):
                 if isinstance(filter_obj, BaseCSVFilter):
                     # CSV widgets read one value; repeated keys would lose all but the last entry.
                     qd[key] = ",".join(str(v) for v in value)
+                elif isinstance(filter_obj, ChoiceFilter):
+                    raise DRFValidationError(
+                        {
+                            "message": "Invalid filter parameters",
+                            "code": "invalid_filterset",
+                            "errors": {key: ["Expected a single value."]},
+                        }
+                    )
                 else:
                     qd.setlist(key, [str(v) for v in value])
             else:
