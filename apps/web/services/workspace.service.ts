@@ -177,6 +177,12 @@ export class WorkspaceService extends APIService {
       });
   }
 
+  async resendWorkspaceInvitation(workspaceSlug: string, invitationId: string): Promise<void> {
+    await this.post(`/api/workspaces/${workspaceSlug}/invitations/${invitationId}/resend/`).catch((error) => {
+      throw error?.response?.data;
+    });
+  }
+
   async updateWorkspaceInvitation(
     workspaceSlug: string,
     invitationId: string,
