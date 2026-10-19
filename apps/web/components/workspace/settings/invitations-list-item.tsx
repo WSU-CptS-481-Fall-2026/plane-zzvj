@@ -10,7 +10,13 @@ import { useParams } from "next/navigation";
 // plane imports
 import { ROLE, EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
-import { ChevronDownOutline, DeleteOutline, LinkOutline, MoreHorizontalOutline } from "@makeplane/propel/icons";
+import {
+  ChevronDownOutline,
+  DeleteOutline,
+  LinkOutline,
+  MailOutline,
+  MoreHorizontalOutline,
+} from "@makeplane/propel/icons";
 import { Icon } from "@makeplane/propel/components/icon";
 import { IconButton } from "@makeplane/propel/components/icon-button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@makeplane/propel/components/menu";
@@ -40,12 +46,18 @@ export const WorkspaceInvitationsListItem = observer(function WorkspaceInvitatio
   const { workspaceSlug } = useParams();
   // states
   const [removeMemberModal, setRemoveMemberModal] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   // plane hooks
   const { t } = useTranslation();
   // store hooks
   const { allowPermissions, workspaceInfoBySlug } = useUserPermissions();
   const {
-    workspace: { updateMemberInvitation, deleteMemberInvitation, getWorkspaceInvitationDetails },
+    workspace: {
+      updateMemberInvitation,
+      deleteMemberInvitation,
+      resendMemberInvitation,
+      getWorkspaceInvitationDetails,
+    },
   } = useMember();
   // derived values
   const invitationDetails = getWorkspaceInvitationDetails(invitationId);
@@ -53,11 +65,7 @@ export const WorkspaceInvitationsListItem = observer(function WorkspaceInvitatio
   const currentWorkspaceRole = currentWorkspaceMemberInfo?.role;
   // is the current logged in user admin
   const isAdmin = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.WORKSPACE);
-  // role change access-
-  // 1. user cannot change their own role
-  // 2. only admin or member can change role
-  // 3. user cannot change role of higher role
-  const hasRoleChangeAccess = allowPermissions(
+  const hasInvitationAccess = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
     EUserPermissionsLevel.WORKSPACE
   );
@@ -91,6 +99,34 @@ export const WorkspaceInvitationsListItem = observer(function WorkspaceInvitatio
 
   if (!invitationDetails || !currentWorkspaceMemberInfo) return null;
 
+  const canResend =
+    hasInvitationAccess &&
+    currentWorkspaceMemberInfo.role >= invitationDetails.role &&
+    !invitationDetails.accepted &&
+    !invitationDetails.responded_at;
+
+  const handleResendInvitation = async () => {
+    if (!workspaceSlug || !canResend || isResending) return;
+    setIsResending(true);
+    try {
+      await resendMemberInvitation(workspaceSlug.toString(), invitationDetails.id);
+      setToast({
+        type: "success",
+        title: t("common.success"),
+        message: t("workspace_settings.settings.members.invitation_queued"),
+      });
+    } catch (err: unknown) {
+      const error = err as { error?: string } | undefined;
+      setToast({
+        type: "error",
+        title: t("error"),
+        message: error?.error || t("workspace_settings.settings.members.invitation_resend_failed"),
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   const handleCopyText = async () => {
     try {
       const inviteLink = new URL(invitationDetails.invite_link, window.location.origin).href;
@@ -107,11 +143,19 @@ export const WorkspaceInvitationsListItem = observer(function WorkspaceInvitatio
 
   const MENU_ITEMS: TContextMenuItem[] = [
     {
+      key: "resend",
+      action: () => void handleResendInvitation(),
+      title: t("workspace_settings.settings.members.resend_invitation"),
+      icon: MailOutline,
+      shouldRender: canResend,
+      disabled: isResending,
+    },
+    {
       key: "copy-link",
       action: () => void handleCopyText(),
       title: t("common.actions.copy_link"),
       icon: LinkOutline,
-      shouldRender: !!invitationDetails.invite_link,
+      shouldRender: isAdmin && !!invitationDetails.invite_link,
     },
     {
       key: "remove",
@@ -170,26 +214,29 @@ export const WorkspaceInvitationsListItem = observer(function WorkspaceInvitatio
               getValues={() => roleOptions}
               getOptionValue={(role) => String(role.key)}
               getOptionLabel={(role) => role.label}
-              disabled={!hasRoleChangeAccess}
+              disabled={!isAdmin}
               showSearch={false}
               pinSelected={false}
             >
-              <Select.Trigger<TRoleOption>
-                variant="pill-sm"
-                appendIcon={hasRoleChangeAccess ? <ChevronDownOutline /> : undefined}
-              >
+              <Select.Trigger<TRoleOption> variant="pill-sm" appendIcon={isAdmin ? <ChevronDownOutline /> : undefined}>
                 <span className="min-w-0 truncate">{ROLE[invitationDetails.role]}</span>
               </Select.Trigger>
             </Select>
           </SelectDropdownPlacementContext.Provider>
-          {isAdmin && (
+          {(isAdmin || canResend) && (
             <Menu>
               <MenuTrigger
+                disabled={isResending}
                 render={
                   <IconButton
                     variant="ghost"
                     size="sm"
-                    aria-label={t("aria_labels.common.more_actions")}
+                    aria-label={
+                      isResending
+                        ? t("workspace_settings.settings.members.resending_invitation")
+                        : t("aria_labels.common.more_actions")
+                    }
+                    loading={isResending}
                     icon={<Icon icon={MoreHorizontalOutline} />}
                   />
                 }
