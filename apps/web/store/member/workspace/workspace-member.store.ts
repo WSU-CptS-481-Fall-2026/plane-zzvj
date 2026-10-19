@@ -53,6 +53,7 @@ export interface IWorkspaceMemberStore {
   removeMemberFromWorkspace: (workspaceSlug: string, userId: string) => Promise<void>;
   // invite actions
   inviteMembersToWorkspace: (workspaceSlug: string, data: IWorkspaceBulkInviteFormData) => Promise<void>;
+  resendMemberInvitation: (workspaceSlug: string, invitationId: string) => Promise<void>;
   updateMemberInvitation: (
     workspaceSlug: string,
     invitationId: string,
@@ -311,6 +312,9 @@ export class WorkspaceMemberStore implements IWorkspaceMemberStore {
     await this.fetchWorkspaceMemberInvitations(workspaceSlug);
     return response;
   };
+
+  resendMemberInvitation = async (workspaceSlug: string, invitationId: string) =>
+    await this.workspaceService.resendWorkspaceInvitation(workspaceSlug, invitationId);
 
   /**
    * @description update the role of a member invitation
