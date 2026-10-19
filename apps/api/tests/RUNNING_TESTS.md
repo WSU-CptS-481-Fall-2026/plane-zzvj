@@ -69,6 +69,15 @@ docker compose -f docker-compose-test.yml run --rm api-tests \
   plane/tests/contract/app/test_issue_state_group_filters.py
 ```
 
+### Workspace invitation resend (#2372)
+
+These tests check resend permissions, invitation status, cooldowns and retries. No real emails are sent.
+
+```bash
+docker compose -f docker-compose-test.yml run --rm api-tests \
+  pytest plane/tests/contract/app/test_workspace_invitation_resend.py
+```
+
 ### Teardown
 
 ```bash
