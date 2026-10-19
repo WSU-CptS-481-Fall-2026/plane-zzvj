@@ -9,6 +9,7 @@ import jwt
 
 # Django imports
 from django.conf import settings
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.utils import timezone
@@ -30,7 +31,11 @@ from plane.bgtasks.workspace_invitation_task import workspace_invitation
 from plane.db.models import User, Workspace, WorkspaceMember, WorkspaceMemberInvite
 from plane.utils.cache import invalidate_cache, invalidate_cache_directly
 from plane.utils.host import base_host
+from plane.utils.exception_logger import log_exception
 from .. import BaseViewSet
+
+
+INVITATION_RESEND_COOLDOWN = 60
 
 
 class WorkspaceInvitationsViewset(BaseViewSet):
@@ -126,6 +131,41 @@ class WorkspaceInvitationsViewset(BaseViewSet):
             )
 
         return Response({"message": "Emails sent successfully"}, status=status.HTTP_200_OK)
+
+    def resend(self, request, slug, pk):
+        invitation = self.get_object()
+        member = WorkspaceMember.objects.get(workspace__slug=slug, member=request.user, is_active=True)
+        if invitation.role > member.role:
+            return Response(
+                {"error": "You cannot resend an invitation for a higher role"}, status=status.HTTP_403_FORBIDDEN
+            )
+        if invitation.accepted or invitation.responded_at is not None:
+            return Response({"error": "This invitation is no longer pending"}, status=status.HTTP_400_BAD_REQUEST)
+        if WorkspaceMember.objects.filter(
+            workspace_id=invitation.workspace_id, member__email__iexact=invitation.email, is_active=True
+        ).exists():
+            return Response({"error": "This user is already a workspace member"}, status=status.HTTP_400_BAD_REQUEST)
+
+        current_site = base_host(request=request, is_app=True)
+        cache_key = f"workspace-invitation-resend:{invitation.id}"
+        if not cache.add(cache_key, True, timeout=INVITATION_RESEND_COOLDOWN):
+            return Response(
+                {"error": "Please wait a minute before resending this invitation"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+                headers={"Retry-After": str(INVITATION_RESEND_COOLDOWN)},
+            )
+        try:
+            workspace_invitation.delay(
+                invitation.email, invitation.workspace_id, invitation.token, current_site, request.user.email
+            )
+        except Exception as exc:
+            cache.delete(cache_key)
+            log_exception(exc)
+            return Response(
+                {"error": "Unable to queue the invitation. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response({"message": "Invitation queued for delivery"}, status=status.HTTP_202_ACCEPTED)
 
     def destroy(self, request, slug, pk):
         workspace_member_invite = WorkspaceMemberInvite.objects.get(pk=pk, workspace__slug=slug)
