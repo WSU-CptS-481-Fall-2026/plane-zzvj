@@ -8,14 +8,14 @@ from django.db import models
 from django.db.models import Q
 from django_filters import FilterSet, filters
 
-from plane.db.models import Issue
+from plane.db.models import Issue, StateGroup
 
 
 class UUIDInFilter(filters.BaseInFilter, filters.UUIDFilter):
     pass
 
 
-class CharInFilter(filters.BaseInFilter, filters.CharFilter):
+class ChoiceInFilter(filters.BaseInFilter, filters.ChoiceFilter):
     pass
 
 
@@ -156,8 +156,8 @@ class IssueFilterSet(BaseFilterSet):
 
     is_archived = filters.BooleanFilter(method="filter_is_archived")
 
-    state_group = filters.CharFilter(field_name="state__group")
-    state_group__in = CharInFilter(field_name="state__group", lookup_expr="in")
+    state_group = filters.ChoiceFilter(field_name="state__group", choices=StateGroup.choices)
+    state_group__in = ChoiceInFilter(field_name="state__group", lookup_expr="in", choices=StateGroup.choices)
 
     state_id = filters.UUIDFilter(field_name="state_id")
     state_id__in = UUIDInFilter(field_name="state_id", lookup_expr="in")
