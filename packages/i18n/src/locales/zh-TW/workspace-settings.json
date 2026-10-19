@@ -44,6 +44,10 @@
         "add_member": "新增成員",
         "pending_invites": "待處理的邀請",
         "invitations_sent_successfully": "邀請傳送成功",
+        "resend_invitation": "重新傳送邀請",
+        "resending_invitation": "正在重新傳送邀請…",
+        "invitation_queued": "邀請已加入傳送佇列。",
+        "invitation_resend_failed": "無法重新傳送邀請。請再試一次。",
         "leave_confirmation": "您確定要離開工作區嗎？您將無法再存取此工作區。此操作無法復原。",
         "details": {
           "full_name": "全名",

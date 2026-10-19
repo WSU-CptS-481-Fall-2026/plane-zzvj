@@ -44,6 +44,10 @@
         "add_member": "Adaugă membru",
         "pending_invites": "Invitații în așteptare",
         "invitations_sent_successfully": "Invitațiile au fost trimise cu succes",
+        "resend_invitation": "Retrimite invitația",
+        "resending_invitation": "Se retrimite invitația…",
+        "invitation_queued": "Invitația a fost adăugată în coada de trimitere.",
+        "invitation_resend_failed": "Invitația nu a putut fi retrimisă. Încercați din nou.",
         "leave_confirmation": "Ești sigur că vrei să părăsești spațiul de lucru? Nu vei mai avea acces la acest spațiu. Această acțiune este ireversibilă.",
         "details": {
           "full_name": "Nume complet",

@@ -44,6 +44,10 @@
         "add_member": "Dodaj członka",
         "pending_invites": "Oczekujące zaproszenia",
         "invitations_sent_successfully": "Zaproszenia wysłano pomyślnie",
+        "resend_invitation": "Wyślij zaproszenie ponownie",
+        "resending_invitation": "Ponowne wysyłanie zaproszenia…",
+        "invitation_queued": "Zaproszenie zostało dodane do kolejki wysyłania.",
+        "invitation_resend_failed": "Nie udało się ponownie wysłać zaproszenia. Spróbuj ponownie.",
         "leave_confirmation": "Czy na pewno chcesz opuścić przestrzeń? Stracisz dostęp. Ta akcja jest nieodwracalna.",
         "details": {
           "full_name": "Imię i nazwisko",

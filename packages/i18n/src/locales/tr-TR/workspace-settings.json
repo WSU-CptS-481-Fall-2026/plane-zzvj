@@ -44,6 +44,10 @@
         "add_member": "Üye ekle",
         "pending_invites": "Bekleyen davetler",
         "invitations_sent_successfully": "Davetler başarıyla gönderildi",
+        "resend_invitation": "Daveti yeniden gönder",
+        "resending_invitation": "Davet yeniden gönderiliyor…",
+        "invitation_queued": "Davet gönderim kuyruğuna eklendi.",
+        "invitation_resend_failed": "Davet yeniden gönderilemedi. Lütfen tekrar deneyin.",
         "leave_confirmation": "Çalışma alanından ayrılmak istediğinizden emin misiniz? Artık bu çalışma alanına erişiminiz olmayacak. Bu işlem geri alınamaz.",
         "details": {
           "full_name": "Tam ad",

@@ -44,6 +44,10 @@
         "add_member": "Add member",
         "pending_invites": "Pending invites",
         "invitations_sent_successfully": "Invitations sent successfully",
+        "resend_invitation": "Resend invitation",
+        "resending_invitation": "Resending invitation…",
+        "invitation_queued": "Invitation queued for delivery.",
+        "invitation_resend_failed": "Unable to resend the invitation. Please try again.",
         "leave_confirmation": "Are you sure you want to leave the workspace? You will no longer have access to this workspace. This action cannot be undone.",
         "details": {
           "full_name": "Full name",

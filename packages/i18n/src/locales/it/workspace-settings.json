@@ -44,6 +44,10 @@
         "add_member": "Aggiungi membro",
         "pending_invites": "Inviti in sospeso",
         "invitations_sent_successfully": "Inviti inviati con successo",
+        "resend_invitation": "Invia di nuovo l’invito",
+        "resending_invitation": "Reinvio dell’invito…",
+        "invitation_queued": "L’invito è stato aggiunto alla coda di invio.",
+        "invitation_resend_failed": "Impossibile inviare di nuovo l’invito. Riprova.",
         "leave_confirmation": "Sei sicuro di voler lasciare lo spazio di lavoro? Non avrai più accesso a questo spazio. Questa azione non può essere annullata.",
         "details": {
           "full_name": "Nome completo",

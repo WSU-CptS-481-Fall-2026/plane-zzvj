@@ -44,6 +44,10 @@
         "add_member": "Tambah anggota",
         "pending_invites": "Undangan yang tertunda",
         "invitations_sent_successfully": "Undangan berhasil dikirim",
+        "resend_invitation": "Kirim ulang undangan",
+        "resending_invitation": "Mengirim ulang undangan…",
+        "invitation_queued": "Undangan telah masuk antrean pengiriman.",
+        "invitation_resend_failed": "Tidak dapat mengirim ulang undangan. Silakan coba lagi.",
         "leave_confirmation": "Apakah Anda yakin ingin meninggalkan ruang kerja? Anda tidak akan lagi memiliki akses ke ruang kerja ini. Tindakan ini tidak dapat dibatalkan.",
         "details": {
           "full_name": "Nama lengkap",

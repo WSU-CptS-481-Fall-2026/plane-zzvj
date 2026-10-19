@@ -44,6 +44,10 @@
         "add_member": "Pridať člena",
         "pending_invites": "Čakajúce pozvánky",
         "invitations_sent_successfully": "Pozvánky boli úspešne odoslané",
+        "resend_invitation": "Znova odoslať pozvánku",
+        "resending_invitation": "Opätovné odosielanie pozvánky…",
+        "invitation_queued": "Pozvánka bola zaradená do frontu na odoslanie.",
+        "invitation_resend_failed": "Pozvánku sa nepodarilo znova odoslať. Skúste to znova.",
         "leave_confirmation": "Naozaj chcete opustiť priestor? Stratíte prístup. Akcia je nevratná.",
         "details": {
           "full_name": "Celé meno",

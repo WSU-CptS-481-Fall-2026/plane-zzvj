@@ -44,6 +44,10 @@
         "add_member": "添加成员",
         "pending_invites": "待处理邀请",
         "invitations_sent_successfully": "邀请发送成功",
+        "resend_invitation": "重新发送邀请",
+        "resending_invitation": "正在重新发送邀请…",
+        "invitation_queued": "邀请已加入发送队列。",
+        "invitation_resend_failed": "无法重新发送邀请。请重试。",
         "leave_confirmation": "您确定要离开工作区吗？您将无法再访问此工作区。此操作无法撤消。",
         "details": {
           "full_name": "全名",

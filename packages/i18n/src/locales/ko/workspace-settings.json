@@ -44,6 +44,10 @@
         "add_member": "멤버 추가",
         "pending_invites": "보류 중인 초대",
         "invitations_sent_successfully": "초대가 성공적으로 전송되었습니다",
+        "resend_invitation": "초대 다시 보내기",
+        "resending_invitation": "초대를 다시 보내는 중…",
+        "invitation_queued": "초대가 전송 대기열에 추가되었습니다.",
+        "invitation_resend_failed": "초대를 다시 보낼 수 없습니다. 다시 시도해 주세요.",
         "leave_confirmation": "작업 공간을 떠나시겠습니까? 더 이상 이 작업 공간에 접근할 수 없습니다. 이 작업은 되돌릴 수 없습니다.",
         "details": {
           "full_name": "전체 이름",

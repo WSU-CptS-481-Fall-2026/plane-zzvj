@@ -44,6 +44,10 @@
         "add_member": "Mitglied hinzufügen",
         "pending_invites": "Ausstehende Einladungen",
         "invitations_sent_successfully": "Einladungen erfolgreich versendet",
+        "resend_invitation": "Einladung erneut senden",
+        "resending_invitation": "Einladung wird erneut gesendet…",
+        "invitation_queued": "Die Einladung wurde zum Versand vorgemerkt.",
+        "invitation_resend_failed": "Die Einladung konnte nicht erneut gesendet werden. Bitte versuche es erneut.",
         "leave_confirmation": "Möchten Sie diesen Arbeitsbereich wirklich verlassen? Sie verlieren den Zugriff. Diese Aktion ist nicht umkehrbar.",
         "details": {
           "full_name": "Vollständiger Name",

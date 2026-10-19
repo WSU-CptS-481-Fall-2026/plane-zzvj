@@ -44,6 +44,10 @@
         "add_member": "Thêm thành viên",
         "pending_invites": "Lời mời đang chờ xử lý",
         "invitations_sent_successfully": "Đã gửi lời mời thành công",
+        "resend_invitation": "Gửi lại lời mời",
+        "resending_invitation": "Đang gửi lại lời mời…",
+        "invitation_queued": "Lời mời đã được thêm vào hàng đợi gửi.",
+        "invitation_resend_failed": "Không thể gửi lại lời mời. Vui lòng thử lại.",
         "leave_confirmation": "Bạn có chắc chắn muốn rời khỏi không gian làm việc này không? Bạn sẽ không thể truy cập không gian làm việc này nữa. Hành động này không thể hoàn tác.",
         "details": {
           "full_name": "Tên đầy đủ",

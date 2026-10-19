@@ -44,6 +44,10 @@
         "add_member": "Lid toevoegen",
         "pending_invites": "Openstaande uitnodigingen",
         "invitations_sent_successfully": "Uitnodigingen succesvol verzonden",
+        "resend_invitation": "Uitnodiging opnieuw versturen",
+        "resending_invitation": "Uitnodiging wordt opnieuw verstuurd…",
+        "invitation_queued": "De uitnodiging is aan de verzendwachtrij toegevoegd.",
+        "invitation_resend_failed": "De uitnodiging kon niet opnieuw worden verstuurd. Probeer het opnieuw.",
         "leave_confirmation": "Weet je zeker dat je de werkruimte wilt verlaten? Je hebt dan geen toegang meer tot deze werkruimte. Deze actie kan niet ongedaan worden gemaakt.",
         "details": {
           "full_name": "Volledige naam",

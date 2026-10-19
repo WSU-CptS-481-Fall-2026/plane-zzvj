@@ -44,6 +44,10 @@
         "add_member": "Adicionar membro",
         "pending_invites": "Convites pendentes",
         "invitations_sent_successfully": "Convites enviados com sucesso",
+        "resend_invitation": "Reenviar convite",
+        "resending_invitation": "Reenviando convite…",
+        "invitation_queued": "O convite foi adicionado à fila de envio.",
+        "invitation_resend_failed": "Não foi possível reenviar o convite. Tente novamente.",
         "leave_confirmation": "Tem certeza de que deseja sair do espaço de trabalho? Você não terá mais acesso a este espaço de trabalho. Esta ação não pode ser desfeita.",
         "details": {
           "full_name": "Nome completo",

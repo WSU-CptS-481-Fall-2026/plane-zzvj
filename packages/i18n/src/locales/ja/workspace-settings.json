@@ -44,6 +44,10 @@
         "add_member": "メンバーを追加",
         "pending_invites": "保留中の招待",
         "invitations_sent_successfully": "招待が正常に送信されました",
+        "resend_invitation": "招待を再送信",
+        "resending_invitation": "招待を再送信中…",
+        "invitation_queued": "招待が送信待ちのキューに追加されました。",
+        "invitation_resend_failed": "招待を再送信できませんでした。もう一度お試しください。",
         "leave_confirmation": "ワークスペースから退出してもよろしいですか？このワークスペースにアクセスできなくなります。この操作は取り消せません。",
         "details": {
           "full_name": "フルネーム",

@@ -44,6 +44,10 @@
         "add_member": "Додати учасника",
         "pending_invites": "Очікувані запрошення",
         "invitations_sent_successfully": "Запрошення успішно надіслано",
+        "resend_invitation": "Надіслати запрошення повторно",
+        "resending_invitation": "Повторне надсилання запрошення…",
+        "invitation_queued": "Запрошення додано до черги на надсилання.",
+        "invitation_resend_failed": "Не вдалося надіслати запрошення повторно. Спробуйте ще раз.",
         "leave_confirmation": "Справді вийти з цього простору? Ви втратите доступ. Дія незворотна.",
         "details": {
           "full_name": "Повне ім'я",
