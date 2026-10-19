@@ -146,7 +146,7 @@ const WorkspaceMembersSettingsPage = observer(function WorkspaceMembersSettingsP
             )}
           </div>
         </div>
-        <WorkspaceMembersList searchQuery={searchQuery} isAdmin={canPerformWorkspaceAdminActions} />
+        <WorkspaceMembersList searchQuery={searchQuery} canViewInvitations={canPerformWorkspaceMemberActions} />
       </section>
     </SettingsContentWrapper>
   );

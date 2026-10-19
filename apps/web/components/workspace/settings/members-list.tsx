@@ -22,9 +22,9 @@ import { WorkspaceMembersListItem } from "./members-list-item";
 
 export const WorkspaceMembersList = observer(function WorkspaceMembersList(props: {
   searchQuery: string;
-  isAdmin: boolean;
+  canViewInvitations: boolean;
 }) {
-  const { searchQuery, isAdmin } = props;
+  const { searchQuery, canViewInvitations } = props;
   const [showPendingInvites, setShowPendingInvites] = useState<boolean>(true);
 
   // router
@@ -62,7 +62,7 @@ export const WorkspaceMembersList = observer(function WorkspaceMembersList(props
   const searchedInvitationsIds = getSearchedWorkspaceInvitationIds(searchQuery);
   const memberDetails = searchedMemberIds
     ?.map((memberId) => getWorkspaceMemberDetails(memberId))
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       if (a?.is_active && !b?.is_active) return -1;
       if (!a?.is_active && b?.is_active) return 1;
       return 0;
@@ -76,7 +76,7 @@ export const WorkspaceMembersList = observer(function WorkspaceMembersList(props
           <h4 className="mt-16 text-center text-body-xs-regular text-placeholder">{t("no_matching_members")}</h4>
         )}
       </div>
-      {isAdmin && searchedInvitationsIds && searchedInvitationsIds.length > 0 && (
+      {canViewInvitations && searchedInvitationsIds && searchedInvitationsIds.length > 0 && (
         <div className="pt-4">
           <Collapsible
             open={showPendingInvites}
