@@ -10,7 +10,7 @@ import { ClockOutline } from "@makeplane/propel/icons";
 // plane imports
 import { Avatar } from "@makeplane/propel/components/avatar";
 import { Row } from "@plane/blocks/layout";
-import { cn, calculateTimeAgo, renderFormattedDate, renderFormattedTime, getFileURL } from "@plane/utils";
+import { cn, renderFormattedDate, renderFormattedTime, getFileURL } from "@plane/utils";
 // hooks
 import { useWorkspaceNotifications } from "@/hooks/store/notifications";
 import { useNotification } from "@/hooks/store/notifications/use-notification";
@@ -19,6 +19,7 @@ import { useWorkspace } from "@/hooks/store/use-workspace";
 // local imports
 import { NotificationContent } from "./content";
 import { NotificationOption } from "./options";
+import { NotificationTimestamp } from "./timestamp";
 
 type TNotificationItem = {
   workspaceSlug: string;
@@ -132,9 +133,7 @@ export const NotificationItem = observer(function NotificationItem(props: TNotif
                   </span>
                 </p>
               ) : (
-                <p className="mt-auto flex-shrink-0 text-tertiary">
-                  {notification.created_at && calculateTimeAgo(notification.created_at)}
-                </p>
+                <NotificationTimestamp createdAt={notification.created_at} />
               )}
             </div>
           </div>
