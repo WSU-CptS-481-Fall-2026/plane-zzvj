@@ -47,7 +47,7 @@ export interface IWorkspaceMemberInvitation {
   email: string;
   id: string;
   message: string;
-  responded_at: Date;
+  responded_at: string | null;
   role: TUserPermissions;
   token: string;
   invite_link: string;
