@@ -51,6 +51,24 @@ docker compose -f docker-compose-test.yml run --rm api-tests \
 
 The available markers (`unit`, `contract`, `smoke`, `slow`) are declared in `apps/api/pytest.ini`.
 
+### State group filters (#5728)
+
+Invalid state groups now return HTTP 400, including mixed input like `completed,hello`.
+Valid groups with no matching issues still return HTTP 200 with empty results.
+
+For GET requests, use `state_group=completed,started` or
+`filters={"state_group__in":["completed","started"]}`.
+JSON `state_group` and `state_group__exact` take one value and return HTTP 400 for arrays.
+
+Run the tests:
+
+```bash
+docker compose -f docker-compose-test.yml run --rm api-tests \
+  pytest plane/tests/unit/utils/test_issue_filters.py \
+  plane/tests/unit/utils/test_issue_datetime_filters.py \
+  plane/tests/contract/app/test_issue_state_group_filters.py
+```
+
 ### Teardown
 
 ```bash
