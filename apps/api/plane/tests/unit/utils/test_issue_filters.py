@@ -3,8 +3,42 @@
 # See the LICENSE file for details.
 
 import pytest
+from rest_framework.exceptions import ValidationError
 
-from plane.utils.issue_filters import filter_updated_at
+from plane.db.models import StateGroup
+from plane.utils.issue_filters import filter_updated_at, issue_filters
+
+
+@pytest.mark.unit
+class TestStateGroupFilter:
+    @pytest.mark.parametrize("group", StateGroup.values)
+    @pytest.mark.parametrize("method", ["GET", "POST"])
+    def test_valid_groups(self, group, method):
+        value = group if method == "GET" else [group]
+        assert issue_filters({"state_group": value}, method, "issue__") == {"issue__state__group__in": [group]}
+
+    @pytest.mark.parametrize("groups", [["hello"], ["hello", "completed"], ["completed", "hello"]])
+    @pytest.mark.parametrize("method", ["GET", "POST", "PATCH"])
+    def test_invalid_groups_raise_a_field_error(self, groups, method):
+        value = ",".join(groups) if method == "GET" else groups
+        with pytest.raises(ValidationError) as exc:
+            issue_filters({"state_group": value}, method)
+        assert "state_group" in exc.value.detail
+        assert "hello" in str(exc.value.detail)
+
+    @pytest.mark.parametrize("value", [None, "", "null"])
+    @pytest.mark.parametrize("method", ["GET", "POST"])
+    def test_unset_group_is_noop(self, value, method):
+        assert issue_filters({"state_group": value}, method) == {}
+
+    def test_legacy_null_entries_and_empty_post_list(self):
+        assert issue_filters({"state_group": "null,completed"}, "GET") == {"state__group__in": ["completed"]}
+        assert issue_filters({"state_group": []}, "POST") == {}
+
+    @pytest.mark.parametrize("value", ["completed", {"group": "completed"}, [None]])
+    def test_non_get_requires_a_list_of_groups(self, value):
+        with pytest.raises(ValidationError):
+            issue_filters({"state_group": value}, "POST")
 
 
 @pytest.mark.unit
