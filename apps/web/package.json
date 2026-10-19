@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "react-router dev --port 3000",
+    "test": "vitest run",
     "build": "react-router build",
     "preview": "react-router build && serve -s build/client -l 3000",
     "start": "serve -s build/client -l 3000",
@@ -87,6 +88,7 @@
     "dotenv": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-tsconfig-paths": "catalog:"
+    "vite-tsconfig-paths": "catalog:",
+    "vitest": "catalog:"
   }
 }
