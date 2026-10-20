@@ -8,12 +8,14 @@ import json
 # Django imports
 from django.core.serializers.json import DjangoJSONEncoder
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Q, Value, UUIDField
 from django.db.models.functions import Coalesce
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 
 # Third party imports
+from plane.bgtasks.intake_rejection_email_task import send_intake_rejection_email
 from rest_framework import status
 from rest_framework.response import Response
 from drf_spectacular.utils import OpenApiResponse, OpenApiRequest
@@ -27,6 +29,7 @@ from plane.api.serializers import (
 )
 from plane.app.permissions import ProjectLitePermission
 from plane.bgtasks.issue_activities_task import issue_activity
+from plane.bgtasks.intake_rejection_email_task import send_intake_rejection_email
 from plane.db.models import Intake, IntakeIssue, Issue, Project, ProjectMember, State, StateGroup
 from plane.utils.host import base_host
 from plane.utils.content_validator import validate_html_content
@@ -418,8 +421,19 @@ class IntakeIssueDetailAPIEndpoint(BaseAPIView):
 
         # Save intake issue (state transition happens in serializer's update method)
         if intake_serializer:
-            current_instance = json.dumps(IntakeIssueSerializer(intake_issue).data, cls=DjangoJSONEncoder)
+            current_instance = json.dumps(
+                IntakeIssueSerializer(intake_issue).data,
+                cls=DjangoJSONEncoder,
+            )
+
+            old_status = intake_issue.status
             intake_serializer.save()
+
+            if old_status != -1 and intake_issue.status == -1:
+                intake_issue_id = str(intake_issue.id)
+                transaction.on_commit(
+                    lambda: send_intake_rejection_email.delay(intake_issue_id)
+                )
 
             # create a activity for status change
             issue_activity.delay(

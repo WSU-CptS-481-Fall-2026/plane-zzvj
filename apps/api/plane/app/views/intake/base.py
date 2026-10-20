@@ -13,6 +13,7 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import Value, UUIDField
 from django.db.models.functions import Coalesce
+from django.db import transaction
 
 # Third party imports
 from rest_framework import status
@@ -47,6 +48,7 @@ from plane.utils.issue_filters import issue_filters
 from plane.utils.order_queryset import INTAKE_ISSUE_ORDER_BY_ALLOWLIST, sanitize_order_by
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.bgtasks.issue_description_version_task import issue_description_version_task
+from plane.bgtasks.intake_rejection_email_task import send_intake_rejection_email
 from plane.app.views.base import BaseAPIView
 from plane.utils.timezone_converter import user_timezone_converter
 from plane.utils.global_paginator import paginate
@@ -458,7 +460,13 @@ class IntakeIssueViewSet(BaseViewSet):
                     )
 
         if intake_serializer:
+            old_status = intake_issue.status
             intake_serializer.save()
+
+            if old_status != -1 and intake_issue.status == -1:
+                intake_issue_id = str(intake_issue.id)
+                transaction.on_commit(lambda: send_intake_rejection_email.delay(intake_issue_id))
+
             # create a activity for status change
             issue_activity.delay(
                 type="intake.activity.created",
