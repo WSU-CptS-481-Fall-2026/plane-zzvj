@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+import { sortBy } from "lodash-es";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
@@ -60,13 +61,10 @@ export const WorkspaceMembersList = observer(function WorkspaceMembersList(props
   const filteredMemberIds = workspaceSlug ? getFilteredWorkspaceMemberIds(workspaceSlug.toString()) : [];
   const searchedMemberIds = searchQuery ? getSearchedWorkspaceMemberIds(searchQuery) : filteredMemberIds;
   const searchedInvitationsIds = getSearchedWorkspaceInvitationIds(searchQuery);
-  const memberDetails = searchedMemberIds
-    ?.map((memberId) => getWorkspaceMemberDetails(memberId))
-    .toSorted((a, b) => {
-      if (a?.is_active && !b?.is_active) return -1;
-      if (!a?.is_active && b?.is_active) return 1;
-      return 0;
-    });
+  const memberDetails = sortBy(
+    searchedMemberIds?.map((memberId) => getWorkspaceMemberDetails(memberId)),
+    (member) => !member?.is_active
+  );
 
   return (
     <>
