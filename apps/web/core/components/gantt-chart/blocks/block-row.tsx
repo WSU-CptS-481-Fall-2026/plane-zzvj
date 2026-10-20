@@ -15,7 +15,8 @@ import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
 import { useTimeLineChartStore } from "@/hooks/use-timeline-chart";
 //
-import { BLOCK_HEIGHT, SIDEBAR_WIDTH } from "../constants";
+import { BLOCK_HEIGHT } from "../constants";
+import { useGanttSidebarWidth } from "../sidebar-width-context";
 import { ChartAddBlock } from "../helpers";
 
 type Props = {
@@ -35,6 +36,7 @@ export const BlockRow = observer(function BlockRow(props: Props) {
   const [isBlockHiddenOnLeft, setIsBlockHiddenOnLeft] = useState(false);
   // store hooks
   const { getBlockById, updateActiveBlockId, isBlockActive } = useTimeLineChartStore();
+  const { sidebarWidth } = useGanttSidebarWidth();
   const { getIsIssuePeeked } = useIssueDetail();
 
   const block = getBlockById(blockId);
@@ -51,7 +53,7 @@ export const BlockRow = observer(function BlockRow(props: Props) {
     );
 
     // Observe if the block is visible on the chart
-    const observer = new IntersectionObserver(
+    const visibilityObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           setIsHidden(!entry.isIntersecting);
@@ -60,16 +62,16 @@ export const BlockRow = observer(function BlockRow(props: Props) {
       },
       {
         root: intersectionRoot,
-        rootMargin: `0px 0px 0px -${SIDEBAR_WIDTH}px`,
+        rootMargin: `0px 0px 0px -${sidebarWidth}px`,
       }
     );
 
-    observer.observe(timelineBlock);
+    visibilityObserver.observe(timelineBlock);
 
     return () => {
-      observer.unobserve(timelineBlock);
+      visibilityObserver.unobserve(timelineBlock);
     };
-  }, [block]);
+  }, [block, sidebarWidth]);
 
   // hide the block if it doesn't have start and target dates and showAllBlocks is false
   if (!block || !block.data || (!showAllBlocks && !(block.start_date && block.target_date))) return null;
@@ -103,7 +105,7 @@ export const BlockRow = observer(function BlockRow(props: Props) {
                 type="button"
                 className="sticky z-[5] grid h-8 w-8 translate-y-1.5 cursor-pointer place-items-center rounded-sm border border-strong bg-layer-1 text-secondary hover:text-primary"
                 style={{
-                  left: `${SIDEBAR_WIDTH + 4}px`,
+                  left: `${sidebarWidth + 4}px`,
                 }}
                 onClick={() => handleScrollToBlock(block)}
               >

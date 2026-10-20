@@ -12,12 +12,11 @@ import { MODULE_STATUS } from "@plane/constants";
 import { ModuleStatusIcon } from "@plane/propel/icons";
 import { Tooltip } from "@makeplane/propel/components/tooltip";
 // components
-import { SIDEBAR_WIDTH } from "@/components/gantt-chart/constants";
+import { useGanttSidebarWidth } from "@/components/gantt-chart/sidebar-width-context";
 import { getBlockViewDetails } from "@/components/issues/issue-layouts/utils";
 // constants
 // hooks
 import { useModule } from "@/hooks/store/use-module";
-import { useAppRouter } from "@/hooks/use-app-router";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 
 type Props = {
@@ -26,8 +25,6 @@ type Props = {
 
 export const ModuleGanttBlock = observer(function ModuleGanttBlock(props: Props) {
   const { moduleId } = props;
-  // router
-  const router = useAppRouter();
   const { workspaceSlug } = useParams();
   // store hooks
   const { getModuleById } = useModule();
@@ -35,6 +32,7 @@ export const ModuleGanttBlock = observer(function ModuleGanttBlock(props: Props)
   const moduleDetails = getModuleById(moduleId);
   // hooks
   const { isMobile } = usePlatformOS();
+  const { sidebarWidth } = useGanttSidebarWidth();
 
   const { message, blockStyle } = getBlockViewDetails(
     moduleDetails,
@@ -48,23 +46,19 @@ export const ModuleGanttBlock = observer(function ModuleGanttBlock(props: Props)
       align="start"
       disabled={isMobile}
     >
-      <div
+      <Link
+        href={`/${workspaceSlug?.toString()}/projects/${moduleDetails?.project_id}/modules/${moduleDetails?.id}`}
         className="relative flex h-full w-full cursor-pointer items-center rounded-sm"
         style={blockStyle}
-        onClick={() =>
-          router.push(
-            `/${workspaceSlug?.toString()}/projects/${moduleDetails?.project_id}/modules/${moduleDetails?.id}`
-          )
-        }
       >
         <div className="absolute top-0 left-0 h-full w-full bg-surface-1/50" />
         <div
           className="sticky w-auto truncate overflow-hidden px-2.5 py-1 text-13 text-primary"
-          style={{ left: `${SIDEBAR_WIDTH}px` }}
+          style={{ left: `${sidebarWidth}px` }}
         >
           {moduleDetails?.name}
         </div>
-      </div>
+      </Link>
     </Tooltip>
   );
 });

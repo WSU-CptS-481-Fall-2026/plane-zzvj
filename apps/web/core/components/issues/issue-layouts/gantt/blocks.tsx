@@ -10,9 +10,9 @@ import { useParams } from "next/navigation";
 import { Popover } from "@plane/propel/popover";
 import { Tooltip } from "@makeplane/propel/components/tooltip";
 import { ControlLink } from "@plane/ui";
-import { findTotalDaysInRange, generateWorkItemLink } from "@plane/utils";
+import { generateWorkItemLink } from "@plane/utils";
 // components
-import { SIDEBAR_WIDTH } from "@/components/gantt-chart/constants";
+import { useGanttSidebarWidth } from "@/components/gantt-chart/sidebar-width-context";
 import { IssueIdentifier } from "@/components/issues/issue-detail/issue-identifier";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
@@ -45,6 +45,7 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
   // hooks
   const { isMobile } = usePlatformOS();
   const { handleRedirection } = useIssuePeekOverviewRedirection(isEpic);
+  const { sidebarWidth } = useGanttSidebarWidth();
 
   // derived values
   const issueDetails = getIssueById(issueId);
@@ -54,8 +55,6 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
   const { blockStyle } = getBlockViewDetails(issueDetails, stateDetails?.color ?? "");
 
   const handleIssuePeekOverview = () => handleRedirection(workspaceSlug, issueDetails, isMobile);
-
-  const duration = findTotalDaysInRange(issueDetails?.start_date, issueDetails?.target_date) || 0;
 
   return (
     <Popover delay={100} openOnHover>
@@ -72,7 +71,7 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
             <div className="absolute top-0 left-0 h-full w-full bg-surface-1/50" />
             <div
               className="sticky w-auto flex-1 truncate overflow-hidden px-2.5 py-1 text-13 text-primary"
-              style={{ left: `${SIDEBAR_WIDTH}px` }}
+              style={{ left: `${sidebarWidth}px` }}
             >
               {issueDetails?.name}
             </div>

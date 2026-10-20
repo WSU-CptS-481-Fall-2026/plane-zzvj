@@ -26,6 +26,7 @@ import { IssuePeekOverviewHeader } from "./header";
 import { PeekOverviewIssueDetails } from "./issue-detail";
 import { IssuePeekOverviewLoader } from "./loader";
 import { PeekOverviewProperties } from "./properties";
+import { SIDE_PEEK_DESKTOP_WIDTH_CLASS } from "./layout";
 
 interface IIssueView {
   workspaceSlug: string;
@@ -123,7 +124,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
       ? "absolute z-[25] flex flex-col overflow-hidden rounded-sm border border-subtle bg-surface-1 transition-all duration-300"
       : `h-full w-full`,
     !embedIssue && {
-      "top-0 right-0 bottom-0 w-full border-0 border-l md:w-[50%]": peekMode === "side-peek",
+      [`top-0 right-0 bottom-0 w-full border-0 border-l ${SIDE_PEEK_DESKTOP_WIDTH_CLASS}`]: peekMode === "side-peek",
       "top-[8.33%] left-[8.33%] size-5/6": peekMode === "modal",
       "absolute inset-0 m-4": peekMode === "full-screen",
     }

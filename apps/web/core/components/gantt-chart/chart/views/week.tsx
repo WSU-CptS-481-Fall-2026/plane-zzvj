@@ -10,17 +10,19 @@ import { cn } from "@plane/utils";
 // hooks
 import { useTimeLineChartStore } from "@/hooks/use-timeline-chart";
 //
-import { HEADER_HEIGHT, SIDEBAR_WIDTH } from "../../constants";
+import { HEADER_HEIGHT } from "../../constants";
+import { useGanttSidebarWidth } from "../../sidebar-width-context";
 import type { IWeekBlock } from "../../views";
 
 export const WeekChartView = observer(function WeekChartView(_props: any) {
   const { currentViewData, renderView } = useTimeLineChartStore();
+  const { sidebarWidth } = useGanttSidebarWidth();
   const weekBlocks: IWeekBlock[] = renderView;
 
   return (
     <div className={`absolute top-0 left-0 flex h-max min-h-full w-max`}>
       {currentViewData &&
-        weekBlocks?.map((block, rootIndex) => (
+        weekBlocks?.map((block) => (
           <div
             key={`month-${block?.startDate.toString()}-${block?.endDate.toString()}`}
             className="relative flex flex-col outline-[0.25px] outline-subtle-1"
@@ -37,7 +39,7 @@ export const WeekChartView = observer(function WeekChartView(_props: any) {
                 <div
                   className="sticky z-[1] m-1 flex items-center bg-surface-1 px-3 py-1 text-13 font-regular whitespace-nowrap text-secondary capitalize"
                   style={{
-                    left: `${SIDEBAR_WIDTH}px`,
+                    left: `${sidebarWidth}px`,
                   }}
                 >
                   {block?.title}
@@ -48,9 +50,9 @@ export const WeekChartView = observer(function WeekChartView(_props: any) {
               </div>
               {/** Days Sub title */}
               <div className="flex h-5 w-full">
-                {block?.children?.map((weekDay, index) => (
+                {block?.children?.map((weekDay) => (
                   <div
-                    key={`sub-title-${rootIndex}-${index}`}
+                    key={`sub-title-${weekDay.date.toISOString()}`}
                     className={cn(
                       "flex flex-shrink-0 justify-between p-1 text-center capitalize outline-[0.25px] outline-subtle-1",
                       {
@@ -75,9 +77,9 @@ export const WeekChartView = observer(function WeekChartView(_props: any) {
             </div>
             {/** Day Columns */}
             <div className="flex h-full w-full flex-grow bg-surface-1">
-              {block?.children?.map((weekDay, index) => (
+              {block?.children?.map((weekDay) => (
                 <div
-                  key={`column-${rootIndex}-${index}`}
+                  key={`column-${weekDay.date.toISOString()}`}
                   className={cn("h-full overflow-hidden outline-[0.25px] outline-subtle", {
                     "bg-accent-primary/20": weekDay.today,
                   })}
