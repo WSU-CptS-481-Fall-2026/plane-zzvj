@@ -11,6 +11,7 @@ export default defineConfig({
       "@plane/types": source("../../packages/types/src/index.ts"),
       "@plane/hooks": source("../../packages/hooks/src/index.ts"),
       "@plane/i18n": source("../../packages/i18n/src/index.ts"),
+      "@plane/utils": source("../../packages/utils/src/index.ts"),
       "@plane/blocks/icons": source("../../packages/blocks/src/icons/index.ts"),
     },
   },

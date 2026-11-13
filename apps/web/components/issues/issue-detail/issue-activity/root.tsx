@@ -42,6 +42,25 @@ export type TActivityOperations = {
   uploadCommentAsset: (blockId: string, file: File, commentId?: string) => Promise<TFileSignedURLResponse>;
 };
 
+const refreshOptions = {
+  refreshInterval: 15000,
+  revalidateOnMount: false,
+  revalidateOnFocus: true,
+  revalidateOnReconnect: true,
+  refreshWhenHidden: false,
+  refreshWhenOffline: false,
+};
+
+async function refreshWorkItem(resource: "activity" | "comments", load: () => Promise<unknown>) {
+  try {
+    await load();
+    return true;
+  } catch (error) {
+    console.error(`Failed to refresh work item ${resource}`, error);
+    return false;
+  }
+}
+
 export const IssueActivity = observer(function IssueActivity(props: TIssueActivity) {
   const { workspaceSlug, projectId, issueId, disabled = false, isIntakeIssue = false } = props;
   // i18n
@@ -52,6 +71,8 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
     defaultActivityFilters
   );
   const { setValue: setSortOrder, storedValue: sortOrder } = useLocalStorage("activity_sort_order", E_SORT_ORDER.ASC);
+  const activityFilters = selectedFilters || defaultActivityFilters;
+  const activitySortOrder = sortOrder || E_SORT_ORDER.ASC;
 
   const { getProjectById } = useProject();
   const { fetchActivities, fetchComments } = useIssueDetail();
@@ -59,38 +80,14 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
 
   // Jaydon D: #8480 check for new activity and comments.
   const canRefresh = project && workspaceSlug && projectId && issueId;
-  const refreshOptions = {
-    refreshInterval: 15000,
-    revalidateOnMount: false,
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
-    refreshWhenHidden: false,
-    refreshWhenOffline: false,
-  };
   useSWR(
     canRefresh ? ["work-item-activity-refresh", workspaceSlug, projectId, issueId] : null,
-    async () => {
-      try {
-        await fetchActivities(workspaceSlug, projectId, issueId, "mutate");
-        return true;
-      } catch (error) {
-        console.error("Failed to refresh work item activity", error);
-        return false;
-      }
-    },
+    () => refreshWorkItem("activity", () => fetchActivities(workspaceSlug, projectId, issueId, "mutate")),
     refreshOptions
   );
   useSWR(
     canRefresh ? ["work-item-comments-refresh", workspaceSlug, projectId, issueId] : null,
-    async () => {
-      try {
-        await fetchComments(workspaceSlug, projectId, issueId, "mutate");
-        return true;
-      } catch (error) {
-        console.error("Failed to refresh work item comments", error);
-        return false;
-      }
-    },
+    () => refreshWorkItem("comments", () => fetchComments(workspaceSlug, projectId, issueId, "mutate")),
     refreshOptions
   );
 
@@ -135,9 +132,9 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
       <div className="flex items-center justify-between">
         <div className="text-h5-medium text-primary">{t("common.activity")}</div>
         <div className="flex items-center gap-2">
-          <ActivitySortRoot sortOrder={sortOrder || E_SORT_ORDER.ASC} toggleSort={toggleSortOrder} />
+          <ActivitySortRoot sortOrder={activitySortOrder} toggleSort={toggleSortOrder} />
           <ActivityFilterRoot
-            selectedFilters={selectedFilters || defaultActivityFilters}
+            selectedFilters={activityFilters}
             toggleFilter={toggleFilter}
             isIntakeIssue={isIntakeIssue}
             projectId={projectId}
@@ -155,11 +152,11 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
               workspaceSlug={workspaceSlug}
               isIntakeIssue={isIntakeIssue}
               issueId={issueId}
-              selectedFilters={selectedFilters || defaultActivityFilters}
+              selectedFilters={activityFilters}
               activityOperations={activityOperations}
               showAccessSpecifier={!!project.anchor}
               disabled={disabled}
-              sortOrder={sortOrder || E_SORT_ORDER.ASC}
+              sortOrder={activitySortOrder}
             />
             {!disabled && sortOrder === E_SORT_ORDER.ASC && renderCommentCreationBox}
           </div>

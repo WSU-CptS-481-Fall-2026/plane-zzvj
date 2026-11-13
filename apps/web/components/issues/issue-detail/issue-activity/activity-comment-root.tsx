@@ -58,28 +58,32 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
   return (
     <div>
       {filteredActivityAndComments.map((activityComment, index) => {
-        const comment = getCommentById(activityComment.id);
-        return activityComment.activity_type === "COMMENT" ? (
-          <CommentCard
-            key={activityComment.id}
-            workspaceSlug={workspaceSlug}
-            entityId={issueId}
-            comment={comment}
-            activityOperations={activityOperations}
-            ends={index === 0 ? "top" : index === filteredActivityAndComments.length - 1 ? "bottom" : undefined}
-            showAccessSpecifier={!!showAccessSpecifier}
-            showCopyLinkOption={!isIntakeIssue}
-            disabled={disabled}
-            projectId={projectId}
-            enableReplies
-          />
-        ) : BASE_ACTIVITY_FILTER_TYPES.includes(activityComment.activity_type as EActivityFilterType) ? (
-          <IssueActivityItem
-            key={activityComment.id}
-            activityId={activityComment.id}
-            ends={index === 0 ? "top" : index === filteredActivityAndComments.length - 1 ? "bottom" : undefined}
-          />
-        ) : null;
+        const { id, activity_type: type } = activityComment;
+        const ends = index === 0 ? "top" : index === filteredActivityAndComments.length - 1 ? "bottom" : undefined;
+
+        if (type === "COMMENT") {
+          return (
+            <CommentCard
+              key={id}
+              workspaceSlug={workspaceSlug}
+              entityId={issueId}
+              comment={getCommentById(id)}
+              activityOperations={activityOperations}
+              ends={ends}
+              showAccessSpecifier={!!showAccessSpecifier}
+              showCopyLinkOption={!isIntakeIssue}
+              disabled={disabled}
+              projectId={projectId}
+              enableReplies
+            />
+          );
+        }
+
+        if (BASE_ACTIVITY_FILTER_TYPES.includes(type as EActivityFilterType)) {
+          return <IssueActivityItem key={id} activityId={id} ends={ends} />;
+        }
+
+        return null;
       })}
     </div>
   );
