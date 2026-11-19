@@ -162,12 +162,6 @@ class LegacyToRichFiltersConverter:
         except (ValueError, TypeError):
             return False
 
-    def _validate_choice(self, field_name: str, value: str) -> bool:
-        """Validate if a value is valid for a choice field"""
-        if field_name not in self.VALID_CHOICES:
-            return True  # No validation needed for this field
-        return value in self.VALID_CHOICES[field_name]
-
     def _validate_date(self, value: Union[str, datetime]) -> bool:
         """Validate if a value is a valid date using dateutil parser"""
         if isinstance(value, datetime):
@@ -181,244 +175,93 @@ class LegacyToRichFiltersConverter:
                 return False
         return False
 
-    def _validate_value(self, rich_field_name: str, value: Any) -> bool:
-        """Validate a single value based on field type"""
-        if rich_field_name in self.UUID_FIELDS:
+    def _validate_value(self, field: str, value: Any) -> bool:
+        if field in self.UUID_FIELDS:
             return self._validate_uuid(value)
-        elif rich_field_name in self.VALID_CHOICES:
-            return self._validate_choice(rich_field_name, value)
-        elif rich_field_name in self.DATE_FIELDS:
-            return self._validate_date(value)
-        return True  # No specific validation needed
+        if field in self.VALID_CHOICES:
+            return value in self.VALID_CHOICES[field]
+        return True
 
-    def _filter_valid_values(self, rich_field_name: str, values: List[Any]) -> List[Any]:
-        """Filter out invalid values from a list and return only valid ones"""
-        valid_values = []
-        for value in values:
-            if self._validate_value(rich_field_name, value):
-                valid_values.append(value)
-        return valid_values
+    def _date_condition(self, parts, strict):
+        date = parts[0]
+        if not self._validate_date(date):
+            if strict:
+                raise ValueError(f"Invalid date format: {date}")
+            return None
+        if len(parts) == 1:
+            return "exact", date
+        if parts[1] in ("after", "before"):
+            return parts[1], date
+        return None
 
-    def _add_validation_error(self, strict: bool, validation_errors: List[str], message: str) -> None:
-        """Add validation error if in strict mode."""
-        if strict:
-            validation_errors.append(message)
-
-    def _add_rich_filter(self, rich_filters: Dict[str, Any], field_name: str, operator: str, value: Any) -> None:
-        """Add a rich filter with proper field name formatting."""
-        # Convert lists to comma-separated strings for 'in' and 'range' operations
-        if operator in ("in", "range") and isinstance(value, list):
-            value = ",".join(str(v) for v in value)
-        rich_filters[f"{field_name}__{operator}"] = value
-
-    def _handle_value_error(self, e: ValueError, strict: bool, validation_errors: List[str]) -> None:
-        """Handle ValueError with consistent strict/non-strict behavior."""
-        if strict:
-            validation_errors.append(str(e))
-        # In non-strict mode, we just skip (no action needed)
-
-    def _process_date_field(
-        self,
-        rich_field_name: str,
-        values: List[str],
-        strict: bool,
-        validation_errors: List[str],
-        rich_filters: Dict[str, Any],
-    ) -> bool:
-        """Process date field with basic functionality (exact, range)."""
-        if rich_field_name not in self.DATE_FIELDS:
-            return False
-
-        try:
-            date_filter_result = self._convert_date_value(rich_field_name, values, strict)
-            if date_filter_result:
-                rich_filters.update(date_filter_result)
-            return True
-        except ValueError as e:
-            self._handle_value_error(e, strict, validation_errors)
-            return True
+    def _format_date_conditions(self, field, conditions):
+        if len(conditions) == 1 and conditions[0][0] == "exact":
+            return {f"{field}__exact": conditions[0][1]}
+        if {kind for kind, _ in conditions} == {"after", "before"}:
+            bounds = sorted(value for _, value in conditions)
+            return {f"{field}__range": ",".join(bounds)}
+        return {}
 
     def _convert_date_value(self, field_name: str, values: List[str], strict: bool = False) -> Dict[str, Any]:
-        """
-        Convert legacy date values to rich filter format - basic implementation.
-
-        Supports:
-        - Simple dates: "2023-01-01" -> __exact
-        - Basic ranges: ["2023-01-01;after", "2023-12-31;before"] -> __range
-        - Skips complex or relative date patterns
-
-        Args:
-            field_name: Name of the rich filter field
-            values: List of legacy date values
-            strict: If True, raise errors for validation failures
-
-        Raises:
-            ValueError: For malformed date patterns (strict mode)
-        """
-        # Check for relative dates and skip the entire field if found
+        """Convert an exact date or two bounds. Relative expressions omit the whole field."""
+        expressions = []
         for value in values:
-            if ";" in value:
-                parts = value.split(";")
-                if len(parts) > 0 and self.DATE_PATTERN.match(parts[0]):
-                    # Skip relative date patterns entirely
-                    return {}
-
-        # Skip complex conditions (more than 2 values)
-        if len(values) > 2:
+            parts = value.split(";") if ";" in value else [value]
+            if len(parts) > 1 and self.DATE_PATTERN.match(parts[0]):
+                return {}
+            expressions.append(parts)
+        if len(expressions) > 2:
             return {}
 
-        # Process each date value
-        exact_dates = []
-        after_dates = []
-        before_dates = []
+        conditions = []
+        for parts in expressions:
+            condition = self._date_condition(parts, strict)
+            if condition is not None:
+                conditions.append(condition)
+        return self._format_date_conditions(field_name, conditions)
 
+    def _convert_list(self, key, field, values, strict):
+        valid = []
+        invalid = []
         for value in values:
-            if ";" not in value:
-                # Simple date string
-                if not self._validate_date(value):
-                    if strict:
-                        raise ValueError(f"Invalid date format: {value}")
-                    continue
-                exact_dates.append(value)
+            if self._validate_value(field, value):
+                valid.append(value)
             else:
-                # Directional date - only handle basic after/before
-                parts = value.split(";")
-                if len(parts) < 2:
-                    if strict:
-                        raise ValueError(f"Invalid date format: {value}")
-                    continue
+                invalid.append(value)
+        if not valid:
+            raise ValueError(f"No valid values found for {key}: {values}")
+        if strict and invalid:
+            raise ValueError(f"Invalid values for {key}: {invalid}")
+        return {f"{field}__in": ",".join(str(value) for value in valid)}
 
-                date_part = parts[0]
-                direction = parts[1]
-
-                if not self._validate_date(date_part):
-                    if strict:
-                        raise ValueError(f"Invalid date format: {date_part}")
-                    continue
-
-                if direction == "after":
-                    after_dates.append(date_part)
-                elif direction == "before":
-                    before_dates.append(date_part)
-                # Skip unsupported directions
-
-        # Determine return format
-        result = {}
-        if len(after_dates) == 1 and len(before_dates) == 1 and len(exact_dates) == 0:
-            # Simple range: one after and one before
-            start_date = min(after_dates[0], before_dates[0])
-            end_date = max(after_dates[0], before_dates[0])
-            self._add_rich_filter(result, field_name, "range", [start_date, end_date])
-        elif len(exact_dates) == 1 and len(after_dates) == 0 and len(before_dates) == 0:
-            # Single exact date
-            self._add_rich_filter(result, field_name, "exact", exact_dates[0])
-        # Skip all other combinations
-
-        return result
+    def _convert_field(self, key, value, strict):
+        if key not in self.FIELD_MAPPINGS:
+            raise ValueError(f"Unsupported filter key: {key}")
+        field = self.FIELD_MAPPINGS[key]
+        if field in self.DATE_FIELDS:
+            values = value if isinstance(value, list) else [value]
+            return self._convert_date_value(field, values, strict)
+        if isinstance(value, list):
+            return self._convert_list(key, field, value, strict)
+        if not self._validate_value(field, value):
+            raise ValueError(f"Invalid value for {key}: {value}")
+        return {f"{field}__exact": value}
 
     def convert(self, legacy_filters: dict, strict: bool = False) -> Dict[str, Any]:
-        """
-        Convert legacy filters to rich filters format with validation
-
-        Args:
-            legacy_filters: Dictionary of legacy filters
-            strict: If True, raise exception on validation errors.
-                   If False, skip invalid values (default behavior)
-
-        Returns:
-            Dictionary of rich filters
-
-        Raises:
-            ValueError: If strict=True and validation fails
-        """
+        """Convert saved filters, optionally reporting all field errors in input order."""
         rich_filters = {}
-        validation_errors = []
-
-        for legacy_key, value in legacy_filters.items():
-            # Skip if value is None or empty
-            if value is None or (isinstance(value, list) and len(value) == 0):
+        errors = []
+        for key, value in legacy_filters.items():
+            if value is None or value == []:
                 continue
+            try:
+                rich_filters.update(self._convert_field(key, value, strict))
+            except ValueError as exc:
+                if strict:
+                    errors.append(str(exc))
 
-            # Skip if legacy key is not in our mappings (not supported in filterset)
-            if legacy_key not in self.FIELD_MAPPINGS:
-                self._add_validation_error(strict, validation_errors, f"Unsupported filter key: {legacy_key}")
-                continue
-
-            # Get the new field name
-            rich_field_name = self.FIELD_MAPPINGS[legacy_key]
-
-            # Handle list values
-            if isinstance(value, list):
-                # Process date fields with helper method
-                if self._process_date_field(rich_field_name, value, strict, validation_errors, rich_filters):
-                    continue
-
-                # Regular non-date field processing
-                # Filter out invalid values
-                valid_values = self._filter_valid_values(rich_field_name, value)
-
-                if not valid_values:
-                    self._add_validation_error(
-                        strict,
-                        validation_errors,
-                        f"No valid values found for {legacy_key}: {value}",
-                    )
-                    continue
-
-                # Check for invalid values if in strict mode
-                if strict and len(valid_values) != len(value):
-                    invalid_values = [v for v in value if v not in valid_values]
-                    self._add_validation_error(
-                        strict,
-                        validation_errors,
-                        f"Invalid values for {legacy_key}: {invalid_values}",
-                    )
-
-                # For list values, always use __in operator for non-date fields
-                self._add_rich_filter(rich_filters, rich_field_name, "in", valid_values)
-
-            else:
-                # Handle single values
-                # Process date fields with helper method
-                if self._process_date_field(rich_field_name, [value], strict, validation_errors, rich_filters):
-                    continue
-
-                # For non-list values, use __exact operator for non-date fields
-                if self._validate_value(rich_field_name, value):
-                    self._add_rich_filter(rich_filters, rich_field_name, "exact", value)
-                else:
-                    error_msg = f"Invalid value for {legacy_key}: {value}"
-                    self._add_validation_error(strict, validation_errors, error_msg)
-
-        # Raise validation errors if in strict mode
-        if strict and validation_errors:
-            error_message = f"Filter validation errors: {'; '.join(validation_errors)}"
-            raise ValueError(error_message)
-
-        # Convert flat dict to rich filter format
-        return self._format_as_rich_filter(rich_filters)
-
-    def _format_as_rich_filter(self, flat_filters: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Convert a flat dictionary of filters to the proper rich filter format.
-
-        Args:
-            flat_filters: Dictionary with field__lookup keys and values
-
-        Returns:
-            Rich filter format using logical operators (and/or/not)
-        """
-        if not flat_filters:
-            return {}
-
-        # If only one filter, return as leaf node
-        if len(flat_filters) == 1:
-            key, value = next(iter(flat_filters.items()))
-            return {key: value}
-
-        # Multiple filters: wrap in 'and' operator
-        filter_conditions = []
-        for key, value in flat_filters.items():
-            filter_conditions.append({key: value})
-
-        return {"and": filter_conditions}
+        if errors:
+            raise ValueError(f"Filter validation errors: {'; '.join(errors)}")
+        if len(rich_filters) <= 1:
+            return rich_filters
+        return {"and": [{field: value} for field, value in rich_filters.items()]}
