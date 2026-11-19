@@ -29,72 +29,87 @@ def filter_valid_uuids(uuid_list):
     return valid_uuids
 
 
-# Get the 2_weeks, 3_months
 def string_date_filter(issue_filter, duration, subsequent, term, date_filter, offset):
-    now = timezone.now().date()
-    if term == "months":
-        if subsequent == "after":
-            if offset == "fromnow":
-                issue_filter[f"{date_filter}__gte"] = now + timedelta(days=duration * 30)
-            else:
-                issue_filter[f"{date_filter}__gte"] = now - timedelta(days=duration * 30)
-        else:
-            if offset == "fromnow":
-                issue_filter[f"{date_filter}__lte"] = now + timedelta(days=duration * 30)
-            else:
-                issue_filter[f"{date_filter}__lte"] = now - timedelta(days=duration * 30)
     if term == "weeks":
-        if subsequent == "after":
-            if offset == "fromnow":
-                issue_filter[f"{date_filter}__gte"] = now + timedelta(weeks=duration)
-            else:
-                issue_filter[f"{date_filter}__gte"] = now - timedelta(weeks=duration)
-        else:
-            if offset == "fromnow":
-                issue_filter[f"{date_filter}__lte"] = now + timedelta(weeks=duration)
-            else:
-                issue_filter[f"{date_filter}__lte"] = now - timedelta(weeks=duration)
+        delta = timedelta(weeks=duration)
+    elif term == "months":
+        delta = timedelta(days=30 * duration)
+    else:
+        return
+
+    lookup = "gte" if subsequent == "after" else "lte"
+    if offset != "fromnow":
+        delta = -delta
+    issue_filter[f"{date_filter}__{lookup}"] = timezone.now().date() + delta
 
 
 def date_filter(issue_filter, date_term, queries):
-    """
-    Handle all date filters
-    """
+    """Add the lookup for each bare, absolute, or relative date expression."""
     for query in queries:
-        date_query = query.split(";")
-        if date_query:
-            if len(date_query) >= 2:
-                match = pattern.match(date_query[0])
-                if match:
-                    if len(date_query) == 3:
-                        digit, term = date_query[0].split("_")
-                        string_date_filter(
-                            issue_filter=issue_filter,
-                            duration=int(digit),
-                            subsequent=date_query[1],
-                            term=term,
-                            date_filter=date_term,
-                            offset=date_query[2],
-                        )
-                else:
-                    if "after" in date_query:
-                        issue_filter[f"{date_term}__gte"] = date_query[0]
-                    else:
-                        issue_filter[f"{date_term}__lte"] = date_query[0]
-            else:
-                issue_filter[f"{date_term}__contains"] = date_query[0]
+        parts = query.split(";")
+        value = parts[0]
+        if len(parts) == 1:
+            issue_filter[f"{date_term}__contains"] = value
+        elif pattern.match(value):
+            if len(parts) == 3:
+                duration, term = value.split("_")
+                string_date_filter(issue_filter, int(duration), parts[1], term, date_term, parts[2])
+        else:
+            lookup = "gte" if "after" in parts else "lte"
+            issue_filter[f"{date_term}__{lookup}"] = value
+
+
+def _csv_values(raw):
+    return [item for item in raw.split(",") if item != "null"]
+
+
+def _has_list_value(value):
+    return bool(value) and len(value) > 0 and value != "null"
+
+
+def _filter_ids(params, issue_filter, method, prefix, field, lookup, *, allow_none=False, relation=None):
+    key = f"{prefix}{lookup}"
+    value = params.get(field)
+    if method == "GET":
+        items = _csv_values(value)
+        if allow_none and "None" in items:
+            issue_filter[f"{key}__isnull"] = True
+        value = filter_valid_uuids(items)
+    if _has_list_value(value):
+        issue_filter[f"{key}__in"] = value
+    if relation:
+        issue_filter[f"{prefix}{relation}__deleted_at__isnull"] = True
+    return issue_filter
+
+
+def _filter_values(params, issue_filter, method, prefix, field, lookup):
+    value = params.get(field)
+    if method == "GET":
+        value = _csv_values(value)
+        if "" in value:
+            return issue_filter
+    if _has_list_value(value):
+        issue_filter[f"{prefix}{lookup}__in"] = value
+    return issue_filter
+
+
+def _filter_date_field(params, issue_filter, method, prefix, field, *, timestamp=False):
+    value = params.get(field)
+    lookup = f"{prefix}{field}__date" if timestamp else f"{prefix}{field}"
+    if method == "GET":
+        queries = value.split(",")
+        if "" not in queries:
+            date_filter(issue_filter, lookup, queries)
+    elif value and len(value):
+        if timestamp:
+            date_filter(issue_filter, lookup, value)
+        else:
+            issue_filter[lookup] = value
+    return issue_filter
 
 
 def filter_state(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        states = [item for item in params.get("state").split(",") if item != "null"]
-        states = filter_valid_uuids(states)
-        if len(states) and "" not in states:
-            issue_filter[f"{prefix}state__in"] = states
-    else:
-        if params.get("state", None) and len(params.get("state")) and params.get("state") != "null":
-            issue_filter[f"{prefix}state__in"] = params.get("state")
-    return issue_filter
+    return _filter_ids(params, issue_filter, method, prefix, "state", "state")
 
 
 def filter_state_group(params, issue_filter, method, prefix=""):
@@ -103,7 +118,7 @@ def filter_state_group(params, issue_filter, method, prefix=""):
         return issue_filter
 
     if method == "GET":
-        state_group = [item for item in state_group.split(",") if item not in ("", "null")]
+        state_group = [item for item in _csv_values(state_group) if item]
 
     try:
         state_group = ListField(child=ChoiceField(choices=StateGroup.choices)).run_validation(state_group)
@@ -116,99 +131,35 @@ def filter_state_group(params, issue_filter, method, prefix=""):
 
 
 def filter_estimate_point(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        estimate_points = [item for item in params.get("estimate_point").split(",") if item != "null"]
-        if len(estimate_points) and "" not in estimate_points:
-            issue_filter[f"{prefix}estimate_point__in"] = estimate_points
-    else:
-        if (
-            params.get("estimate_point", None)
-            and len(params.get("estimate_point"))
-            and params.get("estimate_point") != "null"
-        ):
-            issue_filter[f"{prefix}estimate_point__in"] = params.get("estimate_point")
-    return issue_filter
+    return _filter_values(params, issue_filter, method, prefix, "estimate_point", "estimate_point")
 
 
 def filter_priority(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        priorities = [item for item in params.get("priority").split(",") if item != "null"]
-        if len(priorities) and "" not in priorities:
-            issue_filter[f"{prefix}priority__in"] = priorities
-    else:
-        if params.get("priority", None) and len(params.get("priority")) and params.get("priority") != "null":
-            issue_filter[f"{prefix}priority__in"] = params.get("priority")
-    return issue_filter
+    return _filter_values(params, issue_filter, method, prefix, "priority", "priority")
 
 
 def filter_parent(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        parents = [item for item in params.get("parent").split(",") if item != "null"]
-        if "None" in parents:
-            issue_filter[f"{prefix}parent__isnull"] = True
-        parents = filter_valid_uuids(parents)
-        if len(parents) and "" not in parents:
-            issue_filter[f"{prefix}parent__in"] = parents
-    else:
-        if params.get("parent", None) and len(params.get("parent")) and params.get("parent") != "null":
-            issue_filter[f"{prefix}parent__in"] = params.get("parent")
-    return issue_filter
+    return _filter_ids(params, issue_filter, method, prefix, "parent", "parent", allow_none=True)
 
 
 def filter_labels(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        labels = [item for item in params.get("labels").split(",") if item != "null"]
-        if "None" in labels:
-            issue_filter[f"{prefix}labels__isnull"] = True
-        labels = filter_valid_uuids(labels)
-        if len(labels) and "" not in labels:
-            issue_filter[f"{prefix}labels__in"] = labels
-    else:
-        if params.get("labels", None) and len(params.get("labels")) and params.get("labels") != "null":
-            issue_filter[f"{prefix}labels__in"] = params.get("labels")
-    issue_filter[f"{prefix}label_issue__deleted_at__isnull"] = True
-    return issue_filter
+    return _filter_ids(
+        params, issue_filter, method, prefix, "labels", "labels", allow_none=True, relation="label_issue"
+    )
 
 
 def filter_assignees(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        assignees = [item for item in params.get("assignees").split(",") if item != "null"]
-        if "None" in assignees:
-            issue_filter[f"{prefix}assignees__isnull"] = True
-        assignees = filter_valid_uuids(assignees)
-        if len(assignees) and "" not in assignees:
-            issue_filter[f"{prefix}assignees__in"] = assignees
-    else:
-        if params.get("assignees", None) and len(params.get("assignees")) and params.get("assignees") != "null":
-            issue_filter[f"{prefix}assignees__in"] = params.get("assignees")
-    issue_filter[f"{prefix}issue_assignee__deleted_at__isnull"] = True
-    return issue_filter
+    return _filter_ids(
+        params, issue_filter, method, prefix, "assignees", "assignees", allow_none=True, relation="issue_assignee"
+    )
 
 
 def filter_mentions(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        mentions = [item for item in params.get("mentions").split(",") if item != "null"]
-        mentions = filter_valid_uuids(mentions)
-        if len(mentions) and "" not in mentions:
-            issue_filter[f"{prefix}issue_mention__mention__id__in"] = mentions
-    else:
-        if params.get("mentions", None) and len(params.get("mentions")) and params.get("mentions") != "null":
-            issue_filter[f"{prefix}issue_mention__mention__id__in"] = params.get("mentions")
-    return issue_filter
+    return _filter_ids(params, issue_filter, method, prefix, "mentions", "issue_mention__mention__id")
 
 
 def filter_created_by(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        created_bys = [item for item in params.get("created_by").split(",") if item != "null"]
-        if "None" in created_bys:
-            issue_filter[f"{prefix}created_by__isnull"] = True
-        created_bys = filter_valid_uuids(created_bys)
-        if len(created_bys) and "" not in created_bys:
-            issue_filter[f"{prefix}created_by__in"] = created_bys
-    else:
-        if params.get("created_by", None) and len(params.get("created_by")) and params.get("created_by") != "null":
-            issue_filter[f"{prefix}created_by__in"] = params.get("created_by")
-    return issue_filter
+    return _filter_ids(params, issue_filter, method, prefix, "created_by", "created_by", allow_none=True)
 
 
 def filter_name(params, issue_filter, method, prefix=""):
@@ -218,90 +169,23 @@ def filter_name(params, issue_filter, method, prefix=""):
 
 
 def filter_created_at(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        created_ats = params.get("created_at").split(",")
-        if len(created_ats) and "" not in created_ats:
-            date_filter(
-                issue_filter=issue_filter,
-                date_term=f"{prefix}created_at__date",
-                queries=created_ats,
-            )
-    else:
-        if params.get("created_at", None) and len(params.get("created_at")):
-            date_filter(
-                issue_filter=issue_filter,
-                date_term=f"{prefix}created_at__date",
-                queries=params.get("created_at", []),
-            )
-    return issue_filter
+    return _filter_date_field(params, issue_filter, method, prefix, "created_at", timestamp=True)
 
 
 def filter_updated_at(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        updated_ats = params.get("updated_at").split(",")
-        if len(updated_ats) and "" not in updated_ats:
-            date_filter(
-                issue_filter=issue_filter,
-                date_term=f"{prefix}updated_at__date",
-                queries=updated_ats,
-            )
-    else:
-        if params.get("updated_at", None) and len(params.get("updated_at")):
-            date_filter(
-                issue_filter=issue_filter,
-                date_term=f"{prefix}updated_at__date",
-                queries=params.get("updated_at", []),
-            )
-    return issue_filter
+    return _filter_date_field(params, issue_filter, method, prefix, "updated_at", timestamp=True)
 
 
 def filter_start_date(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        start_dates = params.get("start_date").split(",")
-        if len(start_dates) and "" not in start_dates:
-            date_filter(
-                issue_filter=issue_filter,
-                date_term=f"{prefix}start_date",
-                queries=start_dates,
-            )
-    else:
-        if params.get("start_date", None) and len(params.get("start_date")):
-            issue_filter[f"{prefix}start_date"] = params.get("start_date")
-    return issue_filter
+    return _filter_date_field(params, issue_filter, method, prefix, "start_date")
 
 
 def filter_target_date(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        target_dates = params.get("target_date").split(",")
-        if len(target_dates) and "" not in target_dates:
-            date_filter(
-                issue_filter=issue_filter,
-                date_term=f"{prefix}target_date",
-                queries=target_dates,
-            )
-    else:
-        if params.get("target_date", None) and len(params.get("target_date")):
-            issue_filter[f"{prefix}target_date"] = params.get("target_date")
-    return issue_filter
+    return _filter_date_field(params, issue_filter, method, prefix, "target_date")
 
 
 def filter_completed_at(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        completed_ats = params.get("completed_at").split(",")
-        if len(completed_ats) and "" not in completed_ats:
-            date_filter(
-                issue_filter=issue_filter,
-                date_term=f"{prefix}completed_at__date",
-                queries=completed_ats,
-            )
-    else:
-        if params.get("completed_at", None) and len(params.get("completed_at")):
-            date_filter(
-                issue_filter=issue_filter,
-                date_term=f"{prefix}completed_at__date",
-                queries=params.get("completed_at", []),
-            )
-    return issue_filter
+    return _filter_date_field(params, issue_filter, method, prefix, "completed_at", timestamp=True)
 
 
 def filter_issue_state_type(params, issue_filter, method, prefix=""):
@@ -317,101 +201,52 @@ def filter_issue_state_type(params, issue_filter, method, prefix=""):
 
 
 def filter_project(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        projects = [item for item in params.get("project").split(",") if item != "null"]
-        projects = filter_valid_uuids(projects)
-        if len(projects) and "" not in projects:
-            issue_filter[f"{prefix}project__in"] = projects
-    else:
-        if params.get("project", None) and len(params.get("project")) and params.get("project") != "null":
-            issue_filter[f"{prefix}project__in"] = params.get("project")
-    return issue_filter
+    return _filter_ids(params, issue_filter, method, prefix, "project", "project")
 
 
 def filter_cycle(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        cycles = [item for item in params.get("cycle").split(",") if item != "null"]
-        if "None" in cycles:
-            issue_filter[f"{prefix}issue_cycle__cycle_id__isnull"] = True
-        cycles = filter_valid_uuids(cycles)
-        if len(cycles) and "" not in cycles:
-            issue_filter[f"{prefix}issue_cycle__cycle_id__in"] = cycles
-    else:
-        if params.get("cycle", None) and len(params.get("cycle")) and params.get("cycle") != "null":
-            issue_filter[f"{prefix}issue_cycle__cycle_id__in"] = params.get("cycle")
-    issue_filter[f"{prefix}issue_cycle__deleted_at__isnull"] = True
-    return issue_filter
+    return _filter_ids(
+        params, issue_filter, method, prefix, "cycle", "issue_cycle__cycle_id", allow_none=True, relation="issue_cycle"
+    )
 
 
 def filter_module(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        modules = [item for item in params.get("module").split(",") if item != "null"]
-        if "None" in modules:
-            issue_filter[f"{prefix}issue_module__module_id__isnull"] = True
-        modules = filter_valid_uuids(modules)
-        if len(modules) and "" not in modules:
-            issue_filter[f"{prefix}issue_module__module_id__in"] = modules
-    else:
-        if params.get("module", None) and len(params.get("module")) and params.get("module") != "null":
-            issue_filter[f"{prefix}issue_module__module_id__in"] = params.get("module")
-    issue_filter[f"{prefix}issue_module__deleted_at__isnull"] = True
-    return issue_filter
+    return _filter_ids(
+        params,
+        issue_filter,
+        method,
+        prefix,
+        "module",
+        "issue_module__module_id",
+        allow_none=True,
+        relation="issue_module",
+    )
 
 
 def filter_intake_status(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        status = [item for item in params.get("intake_status").split(",") if item != "null"]
-        if len(status) and "" not in status:
-            issue_filter[f"{prefix}issue_intake__status__in"] = status
-    else:
-        if (
-            params.get("intake_status", None)
-            and len(params.get("intake_status"))
-            and params.get("intake_status") != "null"
-        ):
-            issue_filter[f"{prefix}issue_intake__status__in"] = params.get("inbox_status")
-    return issue_filter
+    return _filter_values(params, issue_filter, method, prefix, "intake_status", "issue_intake__status")
 
 
 def filter_inbox_status(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        status = [item for item in params.get("inbox_status").split(",") if item != "null"]
-        if len(status) and "" not in status:
-            issue_filter[f"{prefix}issue_intake__status__in"] = status
-    else:
-        if (
-            params.get("inbox_status", None)
-            and len(params.get("inbox_status"))
-            and params.get("inbox_status") != "null"
-        ):
-            issue_filter[f"{prefix}issue_intake__status__in"] = params.get("inbox_status")
-    return issue_filter
+    return _filter_values(params, issue_filter, method, prefix, "inbox_status", "issue_intake__status")
 
 
 def filter_sub_issue_toggle(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        sub_issue = params.get("sub_issue", "false")
-        if sub_issue == "false":
-            issue_filter[f"{prefix}parent__isnull"] = True
-    else:
-        sub_issue = params.get("sub_issue", "false")
-        if sub_issue == "false":
-            issue_filter[f"{prefix}parent__isnull"] = True
+    if params.get("sub_issue", "false") == "false":
+        issue_filter[f"{prefix}parent__isnull"] = True
     return issue_filter
 
 
 def filter_subscribed_issues(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        subscribers = [item for item in params.get("subscriber").split(",") if item != "null"]
-        subscribers = filter_valid_uuids(subscribers)
-        if len(subscribers) and "" not in subscribers:
-            issue_filter[f"{prefix}issue_subscribers__subscriber_id__in"] = subscribers
-    else:
-        if params.get("subscriber", None) and len(params.get("subscriber")) and params.get("subscriber") != "null":
-            issue_filter[f"{prefix}issue_subscribers__subscriber_id__in"] = params.get("subscriber")
-    issue_filter[f"{prefix}issue_subscribers__deleted_at__isnull"] = True
-
-    return issue_filter
+    return _filter_ids(
+        params,
+        issue_filter,
+        method,
+        prefix,
+        "subscriber",
+        "issue_subscribers__subscriber_id",
+        relation="issue_subscribers",
+    )
 
 
 def filter_start_target_date_issues(params, issue_filter, method, prefix=""):
@@ -423,17 +258,7 @@ def filter_start_target_date_issues(params, issue_filter, method, prefix=""):
 
 
 def filter_logged_by(params, issue_filter, method, prefix=""):
-    if method == "GET":
-        logged_bys = [item for item in params.get("logged_by").split(",") if item != "null"]
-        if "None" in logged_bys:
-            issue_filter[f"{prefix}logged_by__isnull"] = True
-        logged_bys = filter_valid_uuids(logged_bys)
-        if len(logged_bys) and "" not in logged_bys:
-            issue_filter[f"{prefix}logged_by__in"] = logged_bys
-    else:
-        if params.get("logged_by", None) and len(params.get("logged_by")) and params.get("logged_by") != "null":
-            issue_filter[f"{prefix}logged_by__in"] = params.get("logged_by")
-    return issue_filter
+    return _filter_ids(params, issue_filter, method, prefix, "logged_by", "logged_by", allow_none=True)
 
 
 def issue_filters(query_params, method, prefix=""):
@@ -467,8 +292,7 @@ def issue_filters(query_params, method, prefix=""):
         "start_target_date": filter_start_target_date_issues,
     }
 
-    for key, value in ISSUE_FILTER.items():
+    for key, apply_filter in ISSUE_FILTER.items():
         if key in query_params:
-            func = value
-            func(query_params, issue_filter, method, prefix)
+            apply_filter(query_params, issue_filter, method, prefix)
     return issue_filter
