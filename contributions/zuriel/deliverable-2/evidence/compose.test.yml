@@ -1,0 +1,14 @@
+services:
+  api-tests:
+    image: plane-zzvj-tests:2372
+    pull_policy: never
+    entrypoint: []
+    environment:
+      TZ: UTC
+      PYTHONHASHSEED: "0"
+      PYTHONDONTWRITEBYTECODE: "1"
+      COVERAGE_FILE: /tmp/.coverage
+      SECRET_KEY: plane-isolated-test-run
+    volumes:
+      - ./apps/api:/code:ro
+      - ./results:/results

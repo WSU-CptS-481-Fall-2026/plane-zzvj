@@ -2,7 +2,7 @@
 
 This guide covers running the Django/pytest suite for `apps/api` inside Docker via `docker-compose-test.yml` at the repo root. The compose file boots an isolated stack — Postgres, Valkey (Redis), RabbitMQ, MinIO — with tmpfs-backed data dirs, so every run begins from a clean slate and a single teardown command removes everything.
 
-For background on the test layout, markers, and fixtures, see [`TESTING_GUIDE.md`](./TESTING_GUIDE.md) and [`README.md`](./README.md).
+For the test layout, markers, and fixtures, see the [testing guide](../plane/tests/TESTING_GUIDE.md) and [test suite overview](../plane/tests/README.md).
 
 ## Prerequisites
 
@@ -77,6 +77,45 @@ These tests check resend permissions, invitation status, cooldowns and retries. 
 docker compose -f docker-compose-test.yml run --rm api-tests \
   pytest plane/tests/contract/app/test_workspace_invitation_resend.py
 ```
+
+### Deliverable 2 filtering regression suite
+
+From the repository root, define the seven test files and the Docker command in Bash or Zsh.
+The invitation and calendar-date tests are part of the original 115-case comparison.
+
+```bash
+filter_tests=(
+  plane/tests/unit/utils/test_issue_filters.py
+  plane/tests/unit/utils/test_filter_backend.py
+  plane/tests/unit/utils/test_filter_converters.py
+  plane/tests/unit/utils/test_issue_datetime_filters.py
+  plane/tests/contract/app/test_issue_complex_filters.py
+  plane/tests/contract/app/test_issue_state_group_filters.py
+  plane/tests/contract/app/test_workspace_invitation_resend.py
+)
+filter_stack=(docker compose -p plane-filter-review -f docker-compose-test.yml)
+filter_pytest=(python -m pytest -o 'addopts=--strict-markers --nomigrations' -p no:cacheprovider -q --tb=short)
+```
+
+Run the tests with the repository's test image.
+
+```bash
+"${filter_stack[@]}" run --rm --build -T api-tests "${filter_pytest[@]}" "${filter_tests[@]}"
+```
+
+To collect statement and branch coverage with the same tests, run this version. It writes the JSON coverage and JUnit results to a temporary host directory.
+
+```bash
+filter_results=$(mktemp -d)
+"${filter_stack[@]}" run --rm --build -T -v "$filter_results:/results" -e COVERAGE_FILE=/tmp/.coverage api-tests \
+  "${filter_pytest[@]}" "${filter_tests[@]}" \
+  --cov=plane.utils.issue_filters --cov=plane.utils.filters.filter_backend --cov=plane.utils.filters.converters \
+  --cov-branch --cov-report=term-missing --cov-report=json:/results/coverage.json --junitxml=/results/tests.xml
+echo "$filter_results"
+"${filter_stack[@]}" down --volumes
+```
+
+In the JSON file, divide `covered_lines` by `num_statements` for statement coverage and `covered_branches` by `num_branches` for branch coverage. The terminal's `Cover` column combines both. Read the pytest result alongside those numbers because a failing assertion can still execute a branch. These runs exercise conversion directly and through the issue-list API. The `--nomigrations` option disables migration execution. For the historical comparison, see the [three-stage report](../../../contributions/zuriel/deliverable-2/README.md) and [baseline walkthrough](../../../contributions/zuriel/deliverable-2/evidence/baseline-walkthrough.md).
 
 ### Teardown
 

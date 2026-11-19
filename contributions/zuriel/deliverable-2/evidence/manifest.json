@@ -1,0 +1,314 @@
+{
+  "date": "2026-11-18",
+  "baseline_commit": "e4f4bd728200c0ae7336e50b68d634ede919feae",
+  "final_revision": "Uncommitted working tree. Source and test SHA-256 values identify this measurement.",
+  "test_runtime": {
+    "python": "3.12.5",
+    "django": "5.2.15",
+    "pytest": "9.0.3",
+    "pytest-cov": "4.1.0",
+    "coverage": "7.2.7",
+    "image": "plane-zzvj-tests:2372",
+    "image_id": "sha256:215c1dba743dca41f029eb884d95e9fbe4099af88a4ca67becfaf8627845c431"
+  },
+  "static_analysis": {
+    "python": "3.12.14",
+    "radon": "6.0.1",
+    "ruff": "0.9.7",
+    "command": "python contributions/zuriel/deliverable-2/evidence/measure.py /path/to/stage/apps/api",
+    "scope": "All functions and methods in the three selected modules. Decisions = sum of function complexity minus one per function. Class aggregate scores are excluded."
+  },
+  "setup": {
+    "source": "git archive e4f4bd728200c0ae7336e50b68d634ede919feae apps/api docker-compose-test.yml",
+    "working_directory": "Root of the temporary export. Only the listed working-tree tests and production modules were overlaid for each stage.",
+    "preparation": [
+      "Copy apps/api/.env.example to apps/api/.env in the export.",
+      "Create results/ and apps/api/plane/static-assets/collected-static/.",
+      "Copy the recorded compose.test.yml to the export root. Sources are mounted read-only in the test runner."
+    ],
+    "start": "docker compose -p plane-d2-nov18-k18bfms7 -f docker-compose-test.yml -f compose.test.yml up -d --wait --pull never test-db test-redis test-mq test-minio",
+    "teardown": "docker compose -p plane-d2-nov18-k18bfms7 -f docker-compose-test.yml -f compose.test.yml down --volumes",
+    "teardown_exit": 0
+  },
+  "original_test_sha256": {
+    "plane/tests/unit/utils/test_issue_filters.py": "9fa72c92ba43f7f9abe5eeb26b72e1c8d1fa47ad9bcd2be6f2a91ff46132312a",
+    "plane/tests/unit/utils/test_issue_datetime_filters.py": "cd4fb7ae75ffe4a76a08b121b2fb51762145f947fdf82dd75c8ad7301baccce6",
+    "plane/tests/contract/app/test_issue_state_group_filters.py": "58fb3cce25f46d225c0735f743595eab610b618625ca5d3b4b0f12daf86b89ed",
+    "plane/tests/contract/app/test_workspace_invitation_resend.py": "b42874f9fc13019b61d91f38f4b67a14b159068db1c602f3bd57f6bd7d732fa5"
+  },
+  "expanded_and_final_test_sha256": {
+    "plane/tests/unit/utils/test_issue_filters.py": "d419d370c97dc4ad1862a51bb54fa8fc390a54651a9b77496bfbc71de94ff983",
+    "plane/tests/unit/utils/test_filter_backend.py": "86cfe955165b8fdf150a010e45ad9c9360b88122fc3dc5b8c2cc91a5d79553bc",
+    "plane/tests/unit/utils/test_filter_converters.py": "4184b270148d2e29c737eee883acbfbffd2bd61801e6b81ae7e39e446fc4a93c",
+    "plane/tests/unit/utils/test_issue_datetime_filters.py": "cd4fb7ae75ffe4a76a08b121b2fb51762145f947fdf82dd75c8ad7301baccce6",
+    "plane/tests/contract/app/test_issue_complex_filters.py": "7b8dbda456ab014273ffe3034d2146ec6c493c2f4a625e7b3e9d8e04ce2de556",
+    "plane/tests/contract/app/test_issue_state_group_filters.py": "58fb3cce25f46d225c0735f743595eab610b618625ca5d3b4b0f12daf86b89ed",
+    "plane/tests/contract/app/test_workspace_invitation_resend.py": "b42874f9fc13019b61d91f38f4b67a14b159068db1c602f3bd57f6bd7d732fa5"
+  },
+  "tests_added": 371,
+  "stages": {
+    "original": {
+      "command": "docker compose -p plane-d2-nov18-k18bfms7 -f docker-compose-test.yml -f compose.test.yml run --rm --no-deps -T api-tests python -m pytest -o 'addopts=--strict-markers --nomigrations' -p no:cacheprovider -q --tb=short plane/tests/unit/utils/test_issue_filters.py plane/tests/unit/utils/test_issue_datetime_filters.py plane/tests/contract/app/test_issue_state_group_filters.py plane/tests/contract/app/test_workspace_invitation_resend.py --cov=plane.utils.issue_filters --cov=plane.utils.filters.filter_backend --cov=plane.utils.filters.converters --cov-branch --cov-report=term-missing --cov-report=json:/results/original-coverage.json --junitxml=/results/original-tests.xml > results/original.log 2>&1",
+      "pytest_exit": 0,
+      "passed": 115,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "original_cases_passing": 115,
+      "case_ids_match_expanded_suite": false,
+      "seconds_junit": 18.852,
+      "failures": [],
+      "production_sha256": {
+        "plane/utils/issue_filters.py": "5d03bc8839348d05ae4665955791c1def8ae967a3ba0930c4718a34838fc9d04",
+        "plane/utils/filters/filter_backend.py": "57d1cab93ee1d5cccaf3f69007aa2ef9abdfe8ef8098d842eb69b7f5b88ec43d",
+        "plane/utils/filters/converters.py": "3e3fe5956dcfeb0e7ea7f6315624975b94f32e689e129b68c8e9e7a3dac20201"
+      },
+      "coverage": {
+        "plane/utils/filters/converters.py": {
+          "statements_hit": 29,
+          "statements": 183,
+          "statement_percent": 15.85,
+          "branches_hit": 0,
+          "branches": 104,
+          "branch_percent": 0.0
+        },
+        "plane/utils/filters/filter_backend.py": {
+          "statements_hit": 146,
+          "statements": 188,
+          "statement_percent": 77.66,
+          "branches_hit": 79,
+          "branches": 116,
+          "branch_percent": 68.1
+        },
+        "plane/utils/issue_filters.py": {
+          "statements_hit": 73,
+          "statements": 287,
+          "statement_percent": 25.44,
+          "branches_hit": 20,
+          "branches": 188,
+          "branch_percent": 10.64
+        }
+      },
+      "records": {
+        "complexity.json": "c83c0dd422c2d3597570beacb0237efc8879dc03711f42cce0a559a6c0a63190",
+        "coverage.json": "2a342d80db4a1e457dd11ffcd30459640685b6a0fe730079af743806540aadd8",
+        "pytest.txt": "6e2f810c29dbb6903241ccc73c8fd596941023c4f7be61c97ed3058214d2aef9",
+        "tests.xml": "f35aea150c29219d22cae9e712358575b9a1bba552a56ab2d53abc6cf01fd432"
+      }
+    },
+    "expanded": {
+      "command": "docker compose -p plane-d2-nov18-k18bfms7 -f docker-compose-test.yml -f compose.test.yml run --rm --no-deps -T api-tests python -m pytest -o 'addopts=--strict-markers --nomigrations' -p no:cacheprovider -q --tb=short plane/tests/unit/utils/test_issue_filters.py plane/tests/unit/utils/test_filter_backend.py plane/tests/unit/utils/test_filter_converters.py plane/tests/unit/utils/test_issue_datetime_filters.py plane/tests/contract/app/test_issue_complex_filters.py plane/tests/contract/app/test_issue_state_group_filters.py plane/tests/contract/app/test_workspace_invitation_resend.py --cov=plane.utils.issue_filters --cov=plane.utils.filters.filter_backend --cov=plane.utils.filters.converters --cov-branch --cov-report=term-missing --cov-report=json:/results/expanded-coverage.json --junitxml=/results/expanded-tests.xml > results/expanded.log 2>&1",
+      "pytest_exit": 1,
+      "passed": 481,
+      "failed": 5,
+      "errors": 0,
+      "skipped": 0,
+      "original_cases_passing": 115,
+      "case_ids_match_expanded_suite": true,
+      "seconds_junit": 22.71,
+      "failures": [
+        "plane.tests.contract.app.test_issue_complex_filters::test_filters_select_matching_issues[uppercase-and]",
+        "plane.tests.contract.app.test_issue_complex_filters::test_filters_select_matching_issues[mixed-case-or]",
+        "plane.tests.contract.app.test_issue_complex_filters::test_filters_select_matching_issues[mixed-case-not]",
+        "plane.tests.unit.utils.test_issue_filters.TestLegacyValueFilters::test_non_get_intake_status_uses_requested_values[POST]",
+        "plane.tests.unit.utils.test_issue_filters.TestLegacyValueFilters::test_non_get_intake_status_uses_requested_values[PATCH]"
+      ],
+      "production_sha256": {
+        "plane/utils/issue_filters.py": "5d03bc8839348d05ae4665955791c1def8ae967a3ba0930c4718a34838fc9d04",
+        "plane/utils/filters/filter_backend.py": "57d1cab93ee1d5cccaf3f69007aa2ef9abdfe8ef8098d842eb69b7f5b88ec43d",
+        "plane/utils/filters/converters.py": "3e3fe5956dcfeb0e7ea7f6315624975b94f32e689e129b68c8e9e7a3dac20201"
+      },
+      "coverage": {
+        "plane/utils/filters/converters.py": {
+          "statements_hit": 176,
+          "statements": 183,
+          "statement_percent": 96.17,
+          "branches_hit": 96,
+          "branches": 104,
+          "branch_percent": 92.31
+        },
+        "plane/utils/filters/filter_backend.py": {
+          "statements_hit": 172,
+          "statements": 188,
+          "statement_percent": 91.49,
+          "branches_hit": 100,
+          "branches": 116,
+          "branch_percent": 86.21
+        },
+        "plane/utils/issue_filters.py": {
+          "statements_hit": 287,
+          "statements": 287,
+          "statement_percent": 100.0,
+          "branches_hit": 187,
+          "branches": 188,
+          "branch_percent": 99.47
+        }
+      },
+      "records": {
+        "complexity.json": "c83c0dd422c2d3597570beacb0237efc8879dc03711f42cce0a559a6c0a63190",
+        "coverage.json": "7a3eaa7facf3fca4e6e0071e6122b392c751c1d55b04b1bbb84c3dc1e6cab620",
+        "pytest.txt": "6678a3c13a67442eda04eacf33a6e033fd7638d359eba5d320db9ce6c72dd89c",
+        "tests.xml": "cff8742639b8a57c3bcdf690e0ee98a1b10f77fb6bb4aaeff7f1d69dc4b5bfe1"
+      }
+    },
+    "legacy": {
+      "command": "docker compose -p plane-d2-nov18-k18bfms7 -f docker-compose-test.yml -f compose.test.yml run --rm --no-deps -T api-tests python -m pytest -o 'addopts=--strict-markers --nomigrations' -p no:cacheprovider -q --tb=short plane/tests/unit/utils/test_issue_filters.py plane/tests/unit/utils/test_filter_backend.py plane/tests/unit/utils/test_filter_converters.py plane/tests/unit/utils/test_issue_datetime_filters.py plane/tests/contract/app/test_issue_complex_filters.py plane/tests/contract/app/test_issue_state_group_filters.py plane/tests/contract/app/test_workspace_invitation_resend.py --cov=plane.utils.issue_filters --cov=plane.utils.filters.filter_backend --cov=plane.utils.filters.converters --cov-branch --cov-report=term-missing --cov-report=json:/results/legacy-coverage.json --junitxml=/results/legacy-tests.xml > results/legacy.log 2>&1",
+      "pytest_exit": 1,
+      "passed": 483,
+      "failed": 3,
+      "errors": 0,
+      "skipped": 0,
+      "original_cases_passing": 115,
+      "case_ids_match_expanded_suite": true,
+      "seconds_junit": 21.967,
+      "failures": [
+        "plane.tests.contract.app.test_issue_complex_filters::test_filters_select_matching_issues[uppercase-and]",
+        "plane.tests.contract.app.test_issue_complex_filters::test_filters_select_matching_issues[mixed-case-or]",
+        "plane.tests.contract.app.test_issue_complex_filters::test_filters_select_matching_issues[mixed-case-not]"
+      ],
+      "production_sha256": {
+        "plane/utils/issue_filters.py": "f7b1744b63f0a90fea34e7820a97475ae105005aa48e44dd85c514a85aa58cec",
+        "plane/utils/filters/filter_backend.py": "57d1cab93ee1d5cccaf3f69007aa2ef9abdfe8ef8098d842eb69b7f5b88ec43d",
+        "plane/utils/filters/converters.py": "3e3fe5956dcfeb0e7ea7f6315624975b94f32e689e129b68c8e9e7a3dac20201"
+      },
+      "coverage": {
+        "plane/utils/filters/converters.py": {
+          "statements_hit": 176,
+          "statements": 183,
+          "statement_percent": 96.17,
+          "branches_hit": 96,
+          "branches": 104,
+          "branch_percent": 92.31
+        },
+        "plane/utils/filters/filter_backend.py": {
+          "statements_hit": 172,
+          "statements": 188,
+          "statement_percent": 91.49,
+          "branches_hit": 100,
+          "branches": 116,
+          "branch_percent": 86.21
+        },
+        "plane/utils/issue_filters.py": {
+          "statements_hit": 158,
+          "statements": 159,
+          "statement_percent": 99.37,
+          "branches_hit": 57,
+          "branches": 58,
+          "branch_percent": 98.28
+        }
+      },
+      "records": {
+        "pytest.txt": "239eaa7ad47a3909096161c4f9b9f56960ca1be845cce5cdf3a5861c3fb6f061"
+      }
+    },
+    "backend": {
+      "command": "docker compose -p plane-d2-nov18-k18bfms7 -f docker-compose-test.yml -f compose.test.yml run --rm --no-deps -T api-tests python -m pytest -o 'addopts=--strict-markers --nomigrations' -p no:cacheprovider -q --tb=short plane/tests/unit/utils/test_issue_filters.py plane/tests/unit/utils/test_filter_backend.py plane/tests/unit/utils/test_filter_converters.py plane/tests/unit/utils/test_issue_datetime_filters.py plane/tests/contract/app/test_issue_complex_filters.py plane/tests/contract/app/test_issue_state_group_filters.py plane/tests/contract/app/test_workspace_invitation_resend.py --cov=plane.utils.issue_filters --cov=plane.utils.filters.filter_backend --cov=plane.utils.filters.converters --cov-branch --cov-report=term-missing --cov-report=json:/results/backend-coverage.json --junitxml=/results/backend-tests.xml > results/backend.log 2>&1",
+      "pytest_exit": 0,
+      "passed": 486,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "original_cases_passing": 115,
+      "case_ids_match_expanded_suite": true,
+      "seconds_junit": 23.734,
+      "failures": [],
+      "production_sha256": {
+        "plane/utils/issue_filters.py": "f7b1744b63f0a90fea34e7820a97475ae105005aa48e44dd85c514a85aa58cec",
+        "plane/utils/filters/filter_backend.py": "dfc2b0dfbc12bedf1450194930f6238946ee6c6461b0d5f5ae3d32c649d244dd",
+        "plane/utils/filters/converters.py": "3e3fe5956dcfeb0e7ea7f6315624975b94f32e689e129b68c8e9e7a3dac20201"
+      },
+      "coverage": {
+        "plane/utils/filters/converters.py": {
+          "statements_hit": 176,
+          "statements": 183,
+          "statement_percent": 96.17,
+          "branches_hit": 96,
+          "branches": 104,
+          "branch_percent": 92.31
+        },
+        "plane/utils/filters/filter_backend.py": {
+          "statements_hit": 147,
+          "statements": 150,
+          "statement_percent": 98.0,
+          "branches_hit": 73,
+          "branches": 75,
+          "branch_percent": 97.33
+        },
+        "plane/utils/issue_filters.py": {
+          "statements_hit": 158,
+          "statements": 159,
+          "statement_percent": 99.37,
+          "branches_hit": 57,
+          "branches": 58,
+          "branch_percent": 98.28
+        }
+      },
+      "records": {
+        "pytest.txt": "2d00133354436fc19aa6957535ae02d407ec38babb67947ff14bcd90234b7f1f"
+      }
+    },
+    "final": {
+      "command": "docker compose -p plane-d2-nov18-k18bfms7 -f docker-compose-test.yml -f compose.test.yml run --rm --no-deps -T api-tests python -m pytest -o 'addopts=--strict-markers --nomigrations' -p no:cacheprovider -q --tb=short plane/tests/unit/utils/test_issue_filters.py plane/tests/unit/utils/test_filter_backend.py plane/tests/unit/utils/test_filter_converters.py plane/tests/unit/utils/test_issue_datetime_filters.py plane/tests/contract/app/test_issue_complex_filters.py plane/tests/contract/app/test_issue_state_group_filters.py plane/tests/contract/app/test_workspace_invitation_resend.py --cov=plane.utils.issue_filters --cov=plane.utils.filters.filter_backend --cov=plane.utils.filters.converters --cov-branch --cov-report=term-missing --cov-report=json:/results/final-coverage.json --junitxml=/results/final-tests.xml > results/final.log 2>&1",
+      "pytest_exit": 0,
+      "passed": 486,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "original_cases_passing": 115,
+      "case_ids_match_expanded_suite": true,
+      "seconds_junit": 24.134,
+      "failures": [],
+      "production_sha256": {
+        "plane/utils/issue_filters.py": "f7b1744b63f0a90fea34e7820a97475ae105005aa48e44dd85c514a85aa58cec",
+        "plane/utils/filters/filter_backend.py": "dfc2b0dfbc12bedf1450194930f6238946ee6c6461b0d5f5ae3d32c649d244dd",
+        "plane/utils/filters/converters.py": "89776f136ba741a9df690e00f12c0bbdb673f88315774fdfe36c4ac92b317b53"
+      },
+      "coverage": {
+        "plane/utils/filters/converters.py": {
+          "statements_hit": 139,
+          "statements": 141,
+          "statement_percent": 98.58,
+          "branches_hit": 76,
+          "branches": 78,
+          "branch_percent": 97.44
+        },
+        "plane/utils/filters/filter_backend.py": {
+          "statements_hit": 147,
+          "statements": 150,
+          "statement_percent": 98.0,
+          "branches_hit": 73,
+          "branches": 75,
+          "branch_percent": 97.33
+        },
+        "plane/utils/issue_filters.py": {
+          "statements_hit": 158,
+          "statements": 159,
+          "statement_percent": 99.37,
+          "branches_hit": 57,
+          "branches": 58,
+          "branch_percent": 98.28
+        }
+      },
+      "records": {
+        "complexity.json": "30a25c0ef7f65b85e977e23254948c570b9dce2a3ffc0012518c4bdc1b525ea9",
+        "coverage.json": "2ec06a008edfc2cbbc20af0ed1fd66047cfb4c0b348b2ffc35ba5e4f2fc70870",
+        "pytest.txt": "2b15d042e2a87fdeae4735a57e5a54a2da3b98e40c8b7fd21bb164ed68419084",
+        "tests.xml": "58dd514423620ce5b11adc0152f458fc437e5f1de14a96c90b5aad86decbc9e8"
+      }
+    }
+  },
+  "verification": {
+    "same_seven_test_files_and_case_ids_for_expanded_and_final": true,
+    "baseline_and_expanded_production_sha256_match": true,
+    "final_working_sources_match_tested_export": true,
+    "original_115_case_ids_pass_every_stage": true,
+    "report_metrics_and_local_links_verified": true
+  },
+  "quality_checks": {
+    "version": "0.9.7",
+    "lint_command": "ruff check --no-cache --config apps/api/pyproject.toml apps/api/plane/utils/issue_filters.py apps/api/plane/utils/filters/filter_backend.py apps/api/plane/utils/filters/converters.py apps/api/plane/tests/unit/utils/test_issue_filters.py apps/api/plane/tests/unit/utils/test_filter_backend.py apps/api/plane/tests/unit/utils/test_filter_converters.py apps/api/plane/tests/contract/app/test_issue_complex_filters.py contributions/zuriel/deliverable-2/evidence/measure.py",
+    "lint_output": "All checks passed!",
+    "format_command": "ruff format --check --no-cache --config apps/api/pyproject.toml apps/api/plane/utils/issue_filters.py apps/api/plane/utils/filters/filter_backend.py apps/api/plane/utils/filters/converters.py apps/api/plane/tests/unit/utils/test_issue_filters.py apps/api/plane/tests/unit/utils/test_filter_backend.py apps/api/plane/tests/unit/utils/test_filter_converters.py apps/api/plane/tests/contract/app/test_issue_complex_filters.py contributions/zuriel/deliverable-2/evidence/measure.py",
+    "format_output": "8 files already formatted"
+  }
+}
