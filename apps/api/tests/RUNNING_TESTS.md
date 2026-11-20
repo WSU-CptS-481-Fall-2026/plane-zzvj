@@ -115,7 +115,9 @@ echo "$filter_results"
 "${filter_stack[@]}" down --volumes
 ```
 
-In the JSON file, divide `covered_lines` by `num_statements` for statement coverage and `covered_branches` by `num_branches` for branch coverage. The terminal's `Cover` column combines both. Read the pytest result alongside those numbers because a failing assertion can still execute a branch. These runs exercise conversion directly and through the issue-list API. The `--nomigrations` option disables migration execution. For the historical comparison, see the [three-stage report](../../../contributions/zuriel/deliverable-2/README.md) and [baseline walkthrough](../../../contributions/zuriel/deliverable-2/evidence/baseline-walkthrough.md).
+In `coverage.json`, each file has a `summary`. Divide `covered_branches` by `num_branches` for branch coverage, or `covered_lines` by `num_statements` for statement coverage. The terminal’s `Cover` column combines the two.
+
+Check `tests.xml` for failures too. A failing test can still cover a branch. These commands skip database migrations. [Coverage results](../../../contributions/zuriel/deliverable-2/README.md#testability) · [Rerun the baseline](../../../contributions/zuriel/deliverable-2/evidence/baseline-walkthrough.md)
 
 ### Teardown
 
