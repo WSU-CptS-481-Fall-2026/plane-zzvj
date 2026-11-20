@@ -261,38 +261,38 @@ def filter_logged_by(params, issue_filter, method, prefix=""):
     return _filter_ids(params, issue_filter, method, prefix, "logged_by", "logged_by", allow_none=True)
 
 
+_FILTER_HANDLERS = {
+    "state": filter_state,
+    "state_group": filter_state_group,
+    "estimate_point": filter_estimate_point,
+    "priority": filter_priority,
+    "parent": filter_parent,
+    "labels": filter_labels,
+    "assignees": filter_assignees,
+    "mentions": filter_mentions,
+    "created_by": filter_created_by,
+    "logged_by": filter_logged_by,
+    "name": filter_name,
+    "created_at": filter_created_at,
+    "updated_at": filter_updated_at,
+    "start_date": filter_start_date,
+    "target_date": filter_target_date,
+    "completed_at": filter_completed_at,
+    "type": filter_issue_state_type,
+    "project": filter_project,
+    "cycle": filter_cycle,
+    "module": filter_module,
+    "intake_status": filter_intake_status,
+    "inbox_status": filter_inbox_status,
+    "sub_issue": filter_sub_issue_toggle,
+    "subscriber": filter_subscribed_issues,
+    "start_target_date": filter_start_target_date_issues,
+}
+
+
 def issue_filters(query_params, method, prefix=""):
     issue_filter = {}
-
-    ISSUE_FILTER = {
-        "state": filter_state,
-        "state_group": filter_state_group,
-        "estimate_point": filter_estimate_point,
-        "priority": filter_priority,
-        "parent": filter_parent,
-        "labels": filter_labels,
-        "assignees": filter_assignees,
-        "mentions": filter_mentions,
-        "created_by": filter_created_by,
-        "logged_by": filter_logged_by,
-        "name": filter_name,
-        "created_at": filter_created_at,
-        "updated_at": filter_updated_at,
-        "start_date": filter_start_date,
-        "target_date": filter_target_date,
-        "completed_at": filter_completed_at,
-        "type": filter_issue_state_type,
-        "project": filter_project,
-        "cycle": filter_cycle,
-        "module": filter_module,
-        "intake_status": filter_intake_status,
-        "inbox_status": filter_inbox_status,
-        "sub_issue": filter_sub_issue_toggle,
-        "subscriber": filter_subscribed_issues,
-        "start_target_date": filter_start_target_date_issues,
-    }
-
-    for key, apply_filter in ISSUE_FILTER.items():
+    for key, apply_filter in _FILTER_HANDLERS.items():
         if key in query_params:
             apply_filter(query_params, issue_filter, method, prefix)
     return issue_filter

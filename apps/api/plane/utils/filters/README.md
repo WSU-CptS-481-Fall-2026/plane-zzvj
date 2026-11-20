@@ -6,7 +6,8 @@ The issue list accepts legacy query parameters and a JSON expression in the `fil
 
 - On GET, `state`, `labels`, `assignees`, and the other ID filters read comma-separated UUIDs. They discard invalid IDs, empty entries, and the literal `"null"`. The corresponding non-GET callers pass their lists through.
 - For parent, labels, assignees, creators, loggers, cycles, and modules, the GET token `"None"` adds an `__isnull` condition. If the list also contains a valid UUID, it retains both conditions. Labels, assignees, cycles, modules, and subscribers keep their condition excluding deleted links. A caller's prefix applies to every generated lookup.
-- Priority, estimate point, and intake status discard `"null"` on GET. An empty CSV entry leaves that whole value filter unset. On POST and PATCH, `intake_status` uses the supplied list. The older `inbox_status` spelling still works and takes precedence when both have values.
+- On GET, priority, estimate point, and intake status ignore `"null"`. An empty item skips that filter entirely. For example, `priority=high,` leaves priority unfiltered.
+- On POST and PATCH, pass a list such as `{"intake_status": [0, 1]}`. Some saved filters use the older name `inbox_status`. If both keys have values, `{"inbox_status": [1], "intake_status": [0]}` selects status `1`.
 - For GET dates, a bare date uses the legacy `contains` lookup. `2026-11-01;after` and `2026-11-30;before` set inclusive bounds. Relative expressions such as `2_weeks;after;fromnow` or `2_months;before;ago` use seven-day weeks and thirty-day months. On non-GET requests, timestamps accept a list of date expressions, while `start_date` and `target_date` take direct values.
 
 ## JSON expressions
