@@ -233,6 +233,11 @@ class TestLegacyValueFilters:
         params = {"intake_status": [0], "inbox_status": []}
         assert issue_filters(params, "POST") == {"issue_intake__status__in": [0]}
 
+    @pytest.mark.parametrize(("inbox_status", "expected"), [("1", ["1"]), ("1,", ["0"])])
+    def test_get_with_both_intake_status_names(self, inbox_status, expected):
+        params = {"inbox_status": inbox_status, "intake_status": "0"}
+        assert issue_filters(params, "GET") == {"issue_intake__status__in": expected}
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
