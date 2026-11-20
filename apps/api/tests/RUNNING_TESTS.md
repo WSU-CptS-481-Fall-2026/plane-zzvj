@@ -115,9 +115,9 @@ echo "$filter_results"
 "${filter_stack[@]}" down --volumes
 ```
 
-In `coverage.json`, each file has a `summary`. Divide `covered_branches` by `num_branches` for branch coverage, or `covered_lines` by `num_statements` for statement coverage. The terminal’s `Cover` column combines the two.
+In `coverage.json`, use `covered_branches / num_branches` for branch coverage and `covered_lines / num_statements` for line coverage. The terminal combines both under `Cover`.
 
-Check `tests.xml` for failures too. A failing test can still cover a branch. These commands skip database migrations. [Coverage results](../../../contributions/zuriel/deliverable-2/README.md#testability) · [Rerun the baseline](../../../contributions/zuriel/deliverable-2/evidence/baseline-walkthrough.md)
+Check `tests.xml` for failures. This run skips migrations. [Coverage results](../../../contributions/zuriel/deliverable-2/README.md#testability) · [Rerun the baseline](../../../contributions/zuriel/deliverable-2/evidence/baseline-walkthrough.md)
 
 ### Teardown
 
