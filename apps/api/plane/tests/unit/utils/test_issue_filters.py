@@ -229,6 +229,10 @@ class TestLegacyValueFilters:
     def test_inbox_status_retains_precedence_when_both_names_are_supplied(self):
         assert issue_filters({"inbox_status": [1], "intake_status": [0]}, "POST") == {"issue_intake__status__in": [1]}
 
+    def test_empty_inbox_status_keeps_intake_status(self):
+        params = {"intake_status": [0], "inbox_status": []}
+        assert issue_filters(params, "POST") == {"issue_intake__status__in": [0]}
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
