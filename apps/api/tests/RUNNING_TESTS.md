@@ -117,7 +117,7 @@ echo "$filter_results"
 
 In `coverage.json`, use `covered_branches / num_branches` for branch coverage and `covered_lines / num_statements` for line coverage. The terminal combines both under `Cover`.
 
-Check `tests.xml` for failures. This run skips migrations. [Coverage results](../../../contributions/zuriel/deliverable-2/README.md#testability) · [Rerun the baseline](../../../contributions/zuriel/deliverable-2/evidence/baseline-walkthrough.md)
+Check `tests.xml` for failures. This run skips migrations.
 
 ### Teardown
 
