@@ -44,8 +44,17 @@ def issue_list_url(workspace, create_user):
         ({"AND": [{"priority": "high"}, {"state_group": "started"}]}, {"Prototype"}),
         ({"oR": [{"state_group": "completed"}, {"state_group": "backlog"}]}, {"Release", "Archive"}),
         ({"Not": {"state_group": "started"}}, {"Release", "Archive"}),
+        ({"not": {"oR": [{"priority": "high"}, {"state_group": "completed"}]}}, {"Polish"}),
     ],
-    ids=["leaf-fields", "empty-intersection", "nested", "uppercase-and", "mixed-case-or", "mixed-case-not"],
+    ids=[
+        "leaf-fields",
+        "empty-intersection",
+        "nested",
+        "uppercase-and",
+        "mixed-case-or",
+        "mixed-case-not",
+        "nested-mixed-case-or",
+    ],
 )
 def test_filters_select_matching_issues(session_client, issue_list_url, tree, names):
     response = session_client.get(issue_list_url, {"filters": json.dumps(tree)})
