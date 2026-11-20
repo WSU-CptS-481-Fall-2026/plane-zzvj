@@ -2,7 +2,7 @@
 
 This guide covers running the Django/pytest suite for `apps/api` inside Docker via `docker-compose-test.yml` at the repo root. The compose file boots an isolated stack — Postgres, Valkey (Redis), RabbitMQ, MinIO — with tmpfs-backed data dirs, so every run begins from a clean slate and a single teardown command removes everything.
 
-For the test layout, markers, and fixtures, see the [testing guide](../plane/tests/TESTING_GUIDE.md) and [test suite overview](../plane/tests/README.md).
+For fixtures and pytest markers, see the [testing guide](../plane/tests/TESTING_GUIDE.md). The [test overview](../plane/tests/README.md) shows where the tests live.
 
 ## Prerequisites
 
@@ -80,8 +80,7 @@ docker compose -f docker-compose-test.yml run --rm api-tests \
 
 ### Deliverable 2 filtering regression suite
 
-From the repository root, define the seven test files and the Docker command in Bash or Zsh.
-The invitation and calendar-date tests are part of the original 115-case comparison.
+Run these from the repo root in Bash or Zsh. The date and invitation tests were part of the original 115 cases.
 
 ```bash
 filter_tests=(
@@ -97,13 +96,13 @@ filter_stack=(docker compose -p plane-filter-review -f docker-compose-test.yml)
 filter_pytest=(python -m pytest -o 'addopts=--strict-markers --nomigrations' -p no:cacheprovider -q --tb=short)
 ```
 
-Run the tests with the repository's test image.
+Run all seven files. This skips migrations.
 
 ```bash
 "${filter_stack[@]}" run --rm --build -T api-tests "${filter_pytest[@]}" "${filter_tests[@]}"
 ```
 
-To collect statement and branch coverage with the same tests, run this version. It writes the JSON coverage and JUnit results to a temporary host directory.
+For coverage, use this version. The last line prints the folder with the results.
 
 ```bash
 filter_results=$(mktemp -d)
@@ -112,12 +111,15 @@ filter_results=$(mktemp -d)
   --cov=plane.utils.issue_filters --cov=plane.utils.filters.filter_backend --cov=plane.utils.filters.converters \
   --cov-branch --cov-report=term-missing --cov-report=json:/results/coverage.json --junitxml=/results/tests.xml
 echo "$filter_results"
-"${filter_stack[@]}" down --volumes
 ```
 
-In `coverage.json`, use `covered_branches / num_branches` for branch coverage and `covered_lines / num_statements` for line coverage. The terminal combines both under `Cover`.
+Check `tests.xml` for failures. In `coverage.json`, use `covered_branches / num_branches` for branch coverage and `covered_lines / num_statements` for line coverage. The terminal’s `Cover` counts both.
 
-Check `tests.xml` for failures. This run skips migrations.
+After either run, stop the test containers.
+
+```bash
+"${filter_stack[@]}" down --volumes
+```
 
 ### Teardown
 
