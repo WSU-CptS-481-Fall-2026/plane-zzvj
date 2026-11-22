@@ -308,39 +308,83 @@ def create_project_issues(
             epoch=time.time(),
         )
 
-        # Create issue labels
-        for label_id in labels:
-            IssueLabel.objects.create(
-                issue=issue,
-                label_id=labels_map[label_id],
-                project_id=project_map[project_id],
-                workspace_id=workspace.id,
-                created_by_id=bot_user.id,
-            )
+        create_issue_labels(issue=issue, labels=labels, labels_map=labels_map,
+                            project_id=project_map[project_id], workspace=workspace, 
+                            bot_user=bot_user)
 
         # Create cycle issues
-        if cycle_id:
-            CycleIssue.objects.create(
-                issue=issue,
-                cycle_id=cycles_map[cycle_id],
-                project_id=project_map[project_id],
-                workspace_id=workspace.id,
-                created_by_id=bot_user.id,
-            )
+        create_issue_cycle(issue=issue, cycle_id=cycle_id, cycles_map=cycles_map,
+                           project_id=project_map[project_id], workspace=workspace, 
+                           bot_user=bot_user)
 
         # Create module issues
-        if module_ids:
-            for module_id in module_ids:
-                ModuleIssue.objects.create(
-                    issue=issue,
-                    module_id=module_map[module_id],
-                    project_id=project_map[project_id],
-                    workspace_id=workspace.id,
-                    created_by_id=bot_user.id,
-                )
+        create_issue_module(issue=issue, module_id=module_ids, modules_map=module_map,
+                            project_id=project_map[project_id], workspace=workspace,
+                            bot_user=bot_user)
 
         logger.info(f"Task: workspace_seed_task -> Issue {issue_id} created")
     return
+
+def create_issue_module(issue, module_ids, modules_map, project_id, workspace, bot_user):
+    """Creates module association for a newly seeded issue.
+
+    Args:
+        issue: The issue to associate module with
+        module_id: The seed module ID to associate with the issue
+        modules_map: Mapping of seed module IDs to actual module IDs
+        project_id: The ID of the project the issue belongs to
+        workspace: workspace the issue belongs to
+        bot_user: The bot user to use for creating the module association
+    """
+    if module_ids:
+        for module_id in module_ids:
+            ModuleIssue.objects.create(
+                issue=issue,
+                module_id=modules_map[module_id],
+                project_id=project_id,
+                workspace_id=workspace.id,
+                created_by_id=bot_user.id,
+            )
+
+def create_issue_cycle(issue, cycle_id, cycles_map, project_id, workspace, bot_user):
+    """Creates cycle association for a given issue.
+
+    Args:
+        issue: The issue to associate cycle with
+        cycle_id: The seed cycle ID to associate with the issue
+        cycles_map: Mapping of seed cycle IDs to actual cycle IDs
+        project_id: The ID of the project the issue belongs to
+        workspace: workspace the issue belongs to
+        bot_user: The bot user to use for creating the cycle association
+    """
+    if cycle_id:
+        CycleIssue.objects.create(
+            issue=issue,
+            cycle_id=cycles_map[cycle_id],
+            project_id=project_id,
+            workspace_id=workspace.id,
+            created_by_id=bot_user.id,
+        )
+
+def create_issue_labels(issue, labels, labels_map, project_id, workspace_id, bot_user):
+    """Creates label associations for a given issue.
+
+    Args:
+        issue: The issue to associate labels with
+        labels: List of seed label IDs to associate with the issue
+        labels_map: Mapping of seed label IDs to actual label IDs
+        project_id: The ID of the project the issue belongs to
+        workspace_id: The ID of the workspace the issue belongs to
+        bot_user: The bot user to use for creating the label associations
+    """
+    for label_id in labels:
+        IssueLabel.objects.create(
+            issue=issue,
+            label_id=labels_map[label_id],
+            project_id=project_id,
+            workspace_id=workspace_id,
+            created_by_id=bot_user.id,
+        )
 
 
 def create_pages(workspace: Workspace, project_map: Dict[int, uuid.UUID], bot_user: User) -> None:
