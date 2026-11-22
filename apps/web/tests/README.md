@@ -41,3 +41,12 @@ with:
 ```bash
 pnpm --filter web exec vitest run tests/components/analytics/work-items/workitems-insight-table-utils.test.ts
 ```
+
+`components/analytics/data-table-utils.test.ts` checks how the shared insight
+table finds the first search column, reads its filter, updates that filter, and
+handles a table without a searchable header. Run it from the repository root
+with:
+
+```bash
+pnpm --filter web exec vitest run tests/components/analytics/data-table-utils.test.ts
+```

@@ -29,6 +29,7 @@ import { CloseOutline, SearchOutline } from "@makeplane/propel/icons";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@plane/propel/table";
 import { cn } from "@plane/utils";
 // plane web components
+import { getSearchColumnId, getSearchFilterValue, setSearchFilterValue } from "./data-table.utils";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -37,14 +38,75 @@ interface DataTableProps<TData, TValue> {
   actions?: (table: TanstackTable<TData>) => React.ReactNode;
 }
 
+interface DataTableSearchProps<TData> {
+  table: TanstackTable<TData>;
+  searchPlaceholder: string;
+}
+
+function DataTableSearch<TData>({ table, searchPlaceholder }: DataTableSearchProps<TData>) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  const searchColumnId = getSearchColumnId(table);
+
+  const openSearch = () => {
+    setIsSearchOpen(true);
+    inputRef.current?.focus();
+  };
+  const clearSearch = () => {
+    setSearchFilterValue(table, "");
+    setIsSearchOpen(false);
+  };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") setIsSearchOpen(true);
+  };
+
+  return (
+    <div className="relative flex max-w-[300px] items-center gap-4">
+      {searchColumnId && (
+        <div className="flex items-center gap-2 text-13 whitespace-nowrap text-placeholder">{searchPlaceholder}</div>
+      )}
+      {!isSearchOpen && (
+        <button
+          type="button"
+          className="-mr-5 grid place-items-center rounded-sm p-2 text-placeholder hover:bg-layer-1"
+          onClick={openSearch}
+        >
+          <SearchOutline className="h-3.5 w-3.5" />
+        </button>
+      )}
+      <div
+        className={cn(
+          "mr-auto flex w-0 items-center justify-start gap-1 overflow-hidden rounded-md border border-transparent bg-surface-1 text-placeholder opacity-0 transition-[width] ease-linear",
+          {
+            "w-64 border-subtle px-2.5 py-1.5 opacity-100": isSearchOpen,
+          }
+        )}
+      >
+        <SearchOutline className="h-3.5 w-3.5" />
+        <input
+          ref={inputRef}
+          className="w-full max-w-[234px] border-none bg-transparent text-13 text-primary placeholder:text-placeholder focus:outline-none"
+          placeholder="Search"
+          value={getSearchFilterValue(table)}
+          onChange={(event) => setSearchFilterValue(table, event.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+        {isSearchOpen && (
+          <button type="button" className="grid place-items-center" onClick={clearSearch}>
+            <CloseOutline className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DataTable<TData, TValue>({ columns, data, searchPlaceholder, actions }: DataTableProps<TData, TValue>) {
   const [rowSelection, _setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [sorting, _setSorting] = React.useState<SortingState>([]);
   const { t } = useTranslation();
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
 
   const table = useReactTable({
     data,
@@ -67,65 +129,7 @@ export function DataTable<TData, TValue>({ columns, data, searchPlaceholder, act
   return (
     <div className="space-y-4">
       <div className="flex w-full items-center justify-between">
-        <div className="relative flex max-w-[300px] items-center gap-4">
-          {table.getHeaderGroups()?.[0]?.headers?.[0]?.id && (
-            <div className="flex items-center gap-2 text-13 whitespace-nowrap text-placeholder">
-              {searchPlaceholder}
-            </div>
-          )}
-          {!isSearchOpen && (
-            <button
-              type="button"
-              className="-mr-5 grid place-items-center rounded-sm p-2 text-placeholder hover:bg-layer-1"
-              onClick={() => {
-                setIsSearchOpen(true);
-                inputRef.current?.focus();
-              }}
-            >
-              <SearchOutline className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <div
-            className={cn(
-              "mr-auto flex w-0 items-center justify-start gap-1 overflow-hidden rounded-md border border-transparent bg-surface-1 text-placeholder opacity-0 transition-[width] ease-linear",
-              {
-                "w-64 border-subtle px-2.5 py-1.5 opacity-100": isSearchOpen,
-              }
-            )}
-          >
-            <SearchOutline className="h-3.5 w-3.5" />
-            <input
-              ref={inputRef}
-              className="w-full max-w-[234px] border-none bg-transparent text-13 text-primary placeholder:text-placeholder focus:outline-none"
-              placeholder="Search"
-              value={table.getColumn(table.getHeaderGroups()?.[0]?.headers?.[0]?.id)?.getFilterValue() as string}
-              onChange={(e) => {
-                const columnId = table.getHeaderGroups()?.[0]?.headers?.[0]?.id;
-                if (columnId) table.getColumn(columnId)?.setFilterValue(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setIsSearchOpen(true);
-                }
-              }}
-            />
-            {isSearchOpen && (
-              <button
-                type="button"
-                className="grid place-items-center"
-                onClick={() => {
-                  const columnId = table.getHeaderGroups()?.[0]?.headers?.[0]?.id;
-                  if (columnId) {
-                    table.getColumn(columnId)?.setFilterValue("");
-                  }
-                  setIsSearchOpen(false);
-                }}
-              >
-                <CloseOutline className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-        </div>
+        <DataTableSearch table={table} searchPlaceholder={searchPlaceholder} />
         {actions && <div>{actions(table)}</div>}
       </div>
 
