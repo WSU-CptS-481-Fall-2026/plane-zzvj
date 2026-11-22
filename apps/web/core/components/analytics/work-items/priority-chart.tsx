@@ -13,14 +13,14 @@ import useSWR from "swr";
 // plane package imports
 import { DownloadOutline } from "@makeplane/propel/icons";
 import type { ChartXAxisDateGrouping } from "@plane/constants";
-import { ANALYTICS_X_AXIS_VALUES, ANALYTICS_Y_AXIS_VALUES, CHART_COLOR_PALETTES, EChartModels } from "@plane/constants";
+import { ANALYTICS_X_AXIS_VALUES, ANALYTICS_Y_AXIS_VALUES, EChartModels } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { BarChart } from "@plane/propel/charts/bar-chart";
 import { EmptyStateCompact } from "@plane/propel/empty-state";
-import type { TBarItem, TChart, TChartDatum, ChartXAxisProperty, ChartYAxisMetric } from "@plane/types";
+import type { TChart, TChartDatum, ChartXAxisProperty, ChartYAxisMetric } from "@plane/types";
 // plane web components
-import { generateExtendedColors, parseChartData } from "@/components/chart/utils";
+import { parseChartData } from "@/components/chart/utils";
 // hooks
 import { useAnalytics } from "@/hooks/store/use-analytics";
 import { useProjectState } from "@/hooks/store/use-project-state";
@@ -28,7 +28,7 @@ import { AnalyticsService } from "@/services/analytics.service";
 import { exportCSV } from "../export";
 import { DataTable } from "../insight-table/data-table";
 import { ChartLoader } from "../loaders";
-import { generateBarColor } from "./utils";
+import { buildPriorityChartBars } from "./utils";
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -85,59 +85,19 @@ const PriorityChart = observer(function PriorityChart(props: Props) {
   );
   const chart_model = props.group_by ? EChartModels.STACKED : EChartModels.BASIC;
 
-  const bars: TBarItem<string>[] = useMemo(() => {
-    if (!parsedData) return [];
-    let parsedBars: TBarItem<string>[];
-    const schemaKeys = Object.keys(parsedData.schema);
-    const baseColors = CHART_COLOR_PALETTES[0]?.[resolvedTheme === "dark" ? "dark" : "light"];
-    const extendedColors = generateExtendedColors(baseColors ?? [], schemaKeys.length);
-    if (chart_model === EChartModels.BASIC) {
-      parsedBars = [
-        {
-          key: "count",
-          label: "Count",
-          stackId: "bar-one",
-          fill: (payload) => generateBarColor(payload.key, { x_axis, y_axis, group_by }, baseColors, workspaceStates),
-          textClassName: "",
-          showPercentage: false,
-          showTopBorderRadius: () => true,
-          showBottomBorderRadius: () => true,
-        },
-      ];
-    } else if (chart_model === EChartModels.STACKED && parsedData.schema) {
-      const parsedExtremes: {
-        [key: string]: {
-          top: string | null;
-          bottom: string | null;
-        };
-      } = {};
-      parsedData.data.forEach((datum) => {
-        let top = null;
-        let bottom = null;
-        for (let i = 0; i < schemaKeys.length; i++) {
-          const key = schemaKeys[i];
-          if (datum[key] === 0) continue;
-          if (!bottom) bottom = key;
-          top = key;
-        }
-        parsedExtremes[datum.key] = { top, bottom };
-      });
-
-      parsedBars = schemaKeys.map((key, index) => ({
-        key: key,
-        label: parsedData.schema[key],
-        stackId: "bar-one",
-        fill: extendedColors[index],
-        textClassName: "",
-        showPercentage: false,
-        showTopBorderRadius: (value, payload: TChartDatum) => parsedExtremes[payload.key].top === value,
-        showBottomBorderRadius: (value, payload: TChartDatum) => parsedExtremes[payload.key].bottom === value,
-      }));
-    } else {
-      parsedBars = [];
-    }
-    return parsedBars;
-  }, [chart_model, group_by, parsedData, resolvedTheme, workspaceStates, x_axis, y_axis]);
+  const bars = useMemo(
+    () =>
+      buildPriorityChartBars({
+        parsedData,
+        chartModel: chart_model,
+        resolvedTheme,
+        x_axis,
+        y_axis,
+        group_by,
+        workspaceStates,
+      }),
+    [chart_model, group_by, parsedData, resolvedTheme, workspaceStates, x_axis, y_axis]
+  );
 
   const yAxisLabel = useMemo(
     () => ANALYTICS_Y_AXIS_VALUES.find((item) => item.value === props.y_axis)?.label ?? props.y_axis,
