@@ -360,65 +360,19 @@ class IntakeIssueViewSet(BaseViewSet):
             role=ROLE.ADMIN.value,
         ).exists()
 
-        if not project_member and not is_workspace_admin:
-            return Response(
-                {"error": "Only admin or creator can update the intake work items"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Only project members admins and created_by users can access this endpoint
-        if ((project_member and project_member.role <= ROLE.GUEST.value) and not is_workspace_admin) and str(
-            intake_issue.created_by_id
-        ) != str(request.user.id):
-            return Response(
-                {"error": "You cannot edit intake issues"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        permission_error = self._check_update_permission(project_member, is_workspace_admin, intake_issue, request.user)
+        if permission_error is not None:
+            return permission_error
 
         # Get issue data
         issue_data = request.data.pop("issue", False)
-        issue_serializer = None
-        issue = None
-        issue_current_instance = None
-        issue_requested_data = None
-
-        # Validate issue data if provided
-        if bool(issue_data):
-            issue = Issue.objects.annotate(
-                label_ids=Coalesce(
-                    ArrayAgg(
-                        "labels__id",
-                        distinct=True,
-                        filter=Q(~Q(labels__id__isnull=True) & Q(label_issue__deleted_at__isnull=True)),
-                    ),
-                    Value([], output_field=ArrayField(UUIDField())),
-                ),
-                assignee_ids=Coalesce(
-                    ArrayAgg(
-                        "assignees__id",
-                        distinct=True,
-                        filter=Q(~Q(assignees__id__isnull=True) & Q(issue_assignee__deleted_at__isnull=True)),
-                    ),
-                    Value([], output_field=ArrayField(UUIDField())),
-                ),
-            ).get(pk=intake_issue.issue_id, workspace__slug=slug, project_id=project_id)
-
-            if project_member and project_member.role <= ROLE.GUEST.value:
-                issue_data = {
-                    "name": issue_data.get("name", issue.name),
-                    "description_html": issue_data.get("description_html", issue.description_html),
-                    "description_json": issue_data.get("description_json", issue.description_json),
-                }
-
-            issue_current_instance = json.dumps(IssueDetailSerializer(issue).data, cls=DjangoJSONEncoder)
-            issue_requested_data = json.dumps(issue_data, cls=DjangoJSONEncoder)
-
-            issue_serializer = IssueCreateSerializer(
-                issue, data=issue_data, partial=True, context={"project_id": project_id, "allow_triage_state": True}
-            )
-
-            if not issue_serializer.is_valid():
-                return Response(issue_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        (issue, issue_serializer, issue_current_instance, 
+         issue_requested_data, validation_error) = self._validate_issue_data(issue_data=issue_data, 
+                                                                             intake_issue=intake_issue, 
+                                                                             slug=slug, project_id=project_id, 
+                                                                             project_member=project_member)
+        if validation_error is not None:
+            return validation_error
 
         # Validate intake issue data if user has permission
         intake_serializer = None
@@ -435,54 +389,96 @@ class IntakeIssueViewSet(BaseViewSet):
         if issue_serializer:
             issue_serializer.save()
 
-            # Check if the update is a migration description update
-            is_migration_description_update = skip_activity and is_description_update
-            # Log all the updates
-            if not is_migration_description_update:
-                if issue is not None:
-                    issue_activity.delay(
-                        type="issue.activity.updated",
-                        requested_data=issue_requested_data,
-                        actor_id=str(request.user.id),
-                        issue_id=str(issue.id),
-                        project_id=str(project_id),
-                        current_instance=issue_current_instance,
-                        epoch=int(timezone.now().timestamp()),
-                        notification=True,
-                        origin=base_host(request=request, is_app=True),
-                        intake=str(intake_issue.id),
-                    )
-                    # updated issue description version
-                    issue_description_version_task.delay(
-                        updated_issue=issue_current_instance,
-                        issue_id=str(pk),
-                        user_id=request.user.id,
-                    )
+            self._record_issue_update_activity(
+                request=request,
+                project_id=project_id,
+                pk=pk,
+                issue=issue,
+                intake_issue=intake_issue,
+                issue_requested_data=issue_requested_data,
+                issue_current_instance=issue_current_instance,
+                skip_activity=skip_activity,
+                is_description_update=is_description_update
+            )
 
         if intake_serializer:
-            old_status = intake_issue.status
-            intake_serializer.save()
-
-            if old_status != -1 and intake_issue.status == -1:
-                intake_issue_id = str(intake_issue.id)
-                transaction.on_commit(lambda: send_intake_rejection_email.delay(intake_issue_id))
-
-            # create a activity for status change
-            issue_activity.delay(
-                type="intake.activity.created",
-                requested_data=json.dumps(request.data, cls=DjangoJSONEncoder),
-                actor_id=str(request.user.id),
-                issue_id=str(pk),
-                project_id=str(project_id),
-                current_instance=intake_current_instance,
-                epoch=int(timezone.now().timestamp()),
-                notification=False,
-                origin=base_host(request=request, is_app=True),
-                intake=str(intake_issue.id),
+            self._save_intake_update(
+                request=request,
+                project_id=project_id,
+                pk=pk,
+                intake_issue=intake_issue,
+                intake_serializer=intake_serializer,
+                intake_current_instance=intake_current_instance
             )
 
         # Fetch and return the updated intake issue
-        intake_issue = (
+        intake_issue = self._get_intake_issue_info(intake_id=intake_id.id, project_id=project_id, issue_id=pk)
+        serializer = IntakeIssueDetailSerializer(intake_issue).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+    # Helper methods for prepare and validate issue data for an intake work item update.
+    # Retrieves the associated issue and its related information.
+    def _validate_issue_data(self, issue_data, intake_issue,slug,project_id,project_member):
+        if not issue_data:
+            return None, None, None, None, None
+
+        issue = Issue.objects.annotate(
+            label_ids=Coalesce(
+                ArrayAgg(
+                    "labels__id",
+                    distinct=True,
+                    filter=Q(~Q(labels__id__isnull=True) & Q(label_issue__deleted_at__isnull=True)),
+                ),
+                Value([], output_field=ArrayField(UUIDField())),
+            ),
+            assignee_ids=Coalesce(
+                ArrayAgg(
+                    "assignees__id",
+                    distinct=True,
+                    filter=Q(~Q(assignees__id__isnull=True) & Q(issue_assignee__deleted_at__isnull=True)),
+                ),
+                Value([], output_field=ArrayField(UUIDField())),
+            ),
+        ).get(pk=intake_issue.issue_id, workspace__slug=slug, project_id=project_id)
+
+        if project_member and project_member.role <= ROLE.GUEST.value:
+            issue_data = {
+                "name": issue_data.get("name", issue.name),
+                "description_html": issue_data.get("description_html", issue.description_html),
+                "description_json": issue_data.get("description_json", issue.description_json),
+            }
+
+    # Helper to save intake work item changes and schedule related notifications.
+    def _save_intake_update(
+            self, request, project_id, pk, 
+            intake_issue, intake_serializer,
+            intake_current_instance):
+        old_status = intake_issue.status
+        intake_serializer.save()
+
+        if old_status != -1 and intake_issue.status == -1:
+            intake_issue_id = str(intake_issue.id)
+            transaction.on_commit(
+                lambda: send_intake_rejection_email.delay(intake_issue_id)
+            )
+
+        # create a activity for status change
+        issue_activity.delay(
+            type="intake.activity.created",
+            requested_data=json.dumps(request.data, cls=DjangoJSONEncoder),
+            actor_id=str(request.user.id),
+            issue_id=str(pk),
+            project_id=str(project_id),
+            current_instance=intake_current_instance,
+            epoch=int(timezone.now().timestamp()),
+            notification=False,
+            origin=base_host(request=request, is_app=True),
+            intake=str(intake_issue.id),
+        )
+
+    # Helper to retrieve intake work item with related issue information
+    def _get_intake_issue_info(self,intake_id, project_id, issue_id):
+        return (
             IntakeIssue.objects.select_related("issue")
             .prefetch_related("issue__labels", "issue__assignees")
             .annotate(
@@ -505,40 +501,64 @@ class IntakeIssueViewSet(BaseViewSet):
                     Value([], output_field=ArrayField(UUIDField())),
                 ),
             )
-            .get(intake_id=intake_id.id, issue_id=pk, project_id=project_id)
+            .get(intake_id=intake_id, issue_id=issue_id, project_id=project_id)
         )
-        serializer = IntakeIssueDetailSerializer(intake_issue).data
-        return Response(serializer, status=status.HTTP_200_OK)
+
+    # Helper to check if the user has permission to update the intake work item
+    def _check_update_permission(self,project_member, is_workspace_admin, intake_issue, user):
+        if not project_member and not is_workspace_admin:
+            return Response(
+                {"error": "Only admin or creator can update the intake work items"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Only project members admins and created_by users can access this endpoint
+        if ((project_member and project_member.role <= ROLE.GUEST.value) 
+            and not is_workspace_admin 
+            and str(intake_issue.created_by_id) != str(user.id)):
+            return Response(
+                {"error": "You cannot edit intake issues"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return None
+
+    # Helper to record issue update and schedule related background tasks.
+    def _record_issue_update_activity(
+            self, request, project_id, pk, issue, 
+            intake_issue, issue_requested_data, 
+            issue_current_instance, skip_activity, 
+            is_description_update):
+        if skip_activity and is_description_update:
+            return
+
+        if issue is None:
+            return
+
+        issue_activity.delay(
+            type="issue.activity.updated",
+            requested_data=issue_requested_data,
+            actor_id=str(request.user.id),
+            issue_id=str(issue.id),
+            project_id=str(project_id),
+            current_instance=issue_current_instance,
+            epoch=int(timezone.now().timestamp()),
+            notification=True,
+            origin=base_host(request=request, is_app=True),
+            intake=str(intake_issue.id)
+        )
+
+        issue_description_version_task.delay(
+            updated_issue=issue_current_instance,
+            issue_id=str(pk),
+            user_id=request.user.id
+        )
 
     @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], creator=True, model=Issue)
     def retrieve(self, request, slug, project_id, pk):
         intake_id = Intake.objects.filter(workspace__slug=slug, project_id=project_id).first()
         project = Project.objects.get(pk=project_id)
-        intake_issue = (
-            IntakeIssue.objects.select_related("issue")
-            .prefetch_related("issue__labels", "issue__assignees")
-            .annotate(
-                label_ids=Coalesce(
-                    ArrayAgg(
-                        "issue__labels__id",
-                        distinct=True,
-                        filter=Q(~Q(issue__labels__id__isnull=True) & Q(issue__label_issue__deleted_at__isnull=True)),
-                    ),
-                    Value([], output_field=ArrayField(UUIDField())),
-                ),
-                assignee_ids=Coalesce(
-                    ArrayAgg(
-                        "issue__assignees__id",
-                        distinct=True,
-                        filter=Q(
-                            ~Q(issue__assignees__id__isnull=True) & Q(issue__issue_assignee__deleted_at__isnull=True)
-                        ),
-                    ),
-                    Value([], output_field=ArrayField(UUIDField())),
-                ),
-            )
-            .get(intake_id=intake_id.id, issue_id=pk, project_id=project_id)
-        )
+        intake_issue = self._get_intake_issue_info(intake_id=intake_id.id, project_id=project_id, issue_id=pk)
         if (
             ProjectMember.objects.filter(
                 workspace__slug=slug,
@@ -560,12 +580,7 @@ class IntakeIssueViewSet(BaseViewSet):
     @allow_permission(allowed_roles=[ROLE.ADMIN], creator=True, model=Issue)
     def destroy(self, request, slug, project_id, pk):
         intake_id = Intake.objects.filter(workspace__slug=slug, project_id=project_id).first()
-        intake_issue = IntakeIssue.objects.get(
-            issue_id=pk,
-            workspace__slug=slug,
-            project_id=project_id,
-            intake_id=intake_id,
-        )
+        intake_issue = self._get_intake_issue_info(intake_id=intake_id.id, project_id=project_id, issue_id=pk)
 
         # Check the issue status
         if intake_issue.status in [-2, -1, 0, 2]:
