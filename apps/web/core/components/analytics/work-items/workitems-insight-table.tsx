@@ -25,8 +25,44 @@ import { AnalyticsService } from "@/services/analytics.service";
 // plane web components
 import { exportCSV } from "../export";
 import { InsightTable } from "../insight-table";
+import { getAssigneeAvatarPresentation } from "./workitems-insight-table.utils";
 
 const analyticsService = new AnalyticsService();
+
+const AssigneeInsightAvatar = ({
+  avatarUrl,
+  displayName,
+}: {
+  avatarUrl: string | undefined;
+  displayName: string | undefined;
+}) => {
+  const presentation = getAssigneeAvatarPresentation(avatarUrl, displayName);
+
+  if (presentation.kind === "avatar") {
+    return (
+      <Avatar
+        alt={presentation.displayName}
+        fallback={presentation.displayName?.[0]?.toUpperCase()}
+        src={getFileURL(presentation.avatarUrl)}
+        size="sm"
+      />
+    );
+  }
+
+  if (presentation.kind === "initial") {
+    return (
+      <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-layer-1 capitalize">
+        {presentation.initial}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-layer-1 capitalize">
+      <UserOutline className="text-secondary" width={12} height={12} />
+    </div>
+  );
+};
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -109,22 +145,7 @@ const WorkItemsInsightTable = observer(function WorkItemsInsightTable() {
             cell: ({ row }: { row: Row<WorkItemInsightColumns> }) => (
               <div className="text-left">
                 <div className="flex items-center gap-2">
-                  {row.original.avatar_url && row.original.avatar_url !== "" ? (
-                    <Avatar
-                      alt={row.original.display_name}
-                      fallback={row.original.display_name?.[0]?.toUpperCase()}
-                      src={getFileURL(row.original.avatar_url)}
-                      size="sm"
-                    />
-                  ) : (
-                    <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-layer-1 capitalize">
-                      {row.original.display_name ? (
-                        row.original.display_name?.[0]
-                      ) : (
-                        <UserOutline className="text-secondary" width={12} height={12} />
-                      )}
-                    </div>
-                  )}
+                  <AssigneeInsightAvatar avatarUrl={row.original.avatar_url} displayName={row.original.display_name} />
                   <span className="break-words text-secondary">{row.original.display_name ?? t(`Unassigned`)}</span>
                 </div>
               </div>

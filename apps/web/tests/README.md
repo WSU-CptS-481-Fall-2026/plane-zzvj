@@ -32,3 +32,12 @@ The bar-series builder lives in
 `apps/web/core/components/analytics/work-items/utils.ts`; keeping this logic
 outside the React component allows the chart rules to be tested without
 mounting the full application or calling the analytics API.
+
+`components/analytics/work-items/workitems-insight-table-utils.test.ts` checks
+the assignee avatar presentation used by the Work Items insight table: avatar
+image, name initial, and placeholder states. Run it from the repository root
+with:
+
+```bash
+pnpm --filter web exec vitest run tests/components/analytics/work-items/workitems-insight-table-utils.test.ts
+```
