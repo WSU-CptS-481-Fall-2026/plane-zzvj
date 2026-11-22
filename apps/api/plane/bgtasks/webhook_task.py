@@ -79,6 +79,16 @@ MODEL_MAPPER = {
     "intake_issue": IntakeIssue,
 }
 
+WEBHOOK_EVENT_MAPPER = {
+    "project": "project",
+    "issue": "issue",
+    "module": "module",
+    "module_issue": "module",
+    "cycle": "cycle",
+    "cycle_issue": "cycle",
+    "issue_comment": "issue_comment",
+}
+
 
 logger = logging.getLogger("plane.worker")
 
@@ -432,20 +442,7 @@ def webhook_activity(
     try:
         webhooks = Webhook.objects.filter(workspace__slug=slug, is_active=True)
 
-        if event == "project":
-            webhooks = webhooks.filter(project=True)
-
-        if event == "issue":
-            webhooks = webhooks.filter(issue=True)
-
-        if event == "module" or event == "module_issue":
-            webhooks = webhooks.filter(module=True)
-
-        if event == "cycle" or event == "cycle_issue":
-            webhooks = webhooks.filter(cycle=True)
-
-        if event == "issue_comment":
-            webhooks = webhooks.filter(issue_comment=True)
+        webhooks = filter_webhooks_by_event_type(webhooks, event)
 
         for webhook in webhooks:
             webhook_send_task.delay(
@@ -473,6 +470,25 @@ def webhook_activity(
             print(e)
         log_exception(e)
         return
+
+def filter_webhooks_by_event_type(webhooks, event):
+    """
+    Filter webhooks based on the event type.
+
+    Args:
+        webhooks: Queryset of active webhooks for a workspace.
+        event: the event type being processed.
+
+    Returns:
+        QuerySet: Webhooks subscribed to the event, or the
+        original queryset when the event in not mapped.
+    """
+    field = WEBHOOK_EVENT_MAPPER.get(event)
+
+    if field is None:
+        return webhooks
+
+    return webhooks.filter(**{field: True})
 
 
 @shared_task
